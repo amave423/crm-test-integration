@@ -1,10 +1,10 @@
 import axios from 'axios';
 
-const API_BASE_URL = 'http://localhost:8080';
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || '';
 
 const api = axios.create({
     baseURL: API_BASE_URL,
-})
+});
 
 api.interceptors.request.use(
     (config) => {
@@ -14,9 +14,7 @@ api.interceptors.request.use(
         }
         return config;
     },
-    (error) => {
-        return Promise.reject(error);
-    }
+    (error) => Promise.reject(error)
 );
 
 api.interceptors.response.use(
@@ -29,10 +27,10 @@ api.interceptors.response.use(
         return Promise.reject(error);
     }
 );
+
 export const eventsAPI = {
-    getEvents: () =>
-        api.get('/api/manager/events'),
-}
+    getEvents: () => api.get('/api/manager/events'),
+};
 
 export const authAPI = {
     register: (name, surname, email, password) =>
@@ -40,10 +38,12 @@ export const authAPI = {
 
     login: (email, password) =>
         api.post('/login', { email, password }),
-}
+
+    ssoExchange: (ticket) =>
+        api.post('/sso/exchange', { ticket }),
+};
 
 export const testsAPI = {
-    // Manager endpoints
     createTest: (testData) =>
         api.post('/api/manager/tests', testData),
 
@@ -53,15 +53,19 @@ export const testsAPI = {
     deleteTest: (testId) =>
         api.post(`/api/manager/tests/delete/${testId}`),
 
-    // Intern endpoints
+    getTestAttempts: (testId) =>
+        api.get(`/api/manager/tests/${testId}/attempts`),
+
     getAttempts: () =>
         api.get('/api/intern/tests'),
 
-    startAttempt: (link) =>
-        api.get(`/api/intern/tests/${link}`),
+    startAttempt: (link, applicationId) =>
+        api.get(`/api/intern/tests/${link}`, {
+            params: applicationId ? { application_id: applicationId } : {},
+        }),
 
     finishAttempt: (attemptData) =>
         api.post('/api/intern/attempt/finish', attemptData),
-}
+};
 
 export default api;

@@ -1,59 +1,64 @@
 package config
 
 import (
-	"log"
-	"os"
+    "log"
+    "os"
+    "strconv"
 
-	"github.com/joho/godotenv"
+    "github.com/joho/godotenv"
 )
 
 type Config struct {
-	DBPassword    string
-	AdminEmail    string
-	AdminPassword string
-	JWTSecret     string
-	JWTTTL        int64
-	CRMService    string
-	CRMToken      string
+    DatabaseURL   string
+    DBHost        string
+    DBPort        string
+    DBName        string
+    DBUser        string
+    DBPassword    string
+    AdminEmail    string
+    AdminPassword string
+    JWTSecret     string
+    JWTTTL        int64
+    CRMService    string
+    CRMToken      string
+    ClientURL     string
+    Port          string
 }
 
 func Load() *Config {
-	err := godotenv.Load()
-	if err != nil {
-		log.Println("Error loading .env file")
-	}
+    if err := godotenv.Load(); err != nil {
+        log.Println(".env file was not loaded, environment variables will be used")
+    }
 
-	dbPassword := os.Getenv("DB_PASSWORD")
-	if dbPassword == "" {
-		dbPassword = "postgres"
-	}
-	adminEmail := os.Getenv("ADMIN_EMAIL")
-	if adminEmail == "" {
-		adminEmail = "admin@example.com"
-	}
-	adminPassword := os.Getenv("ADMIN_PASSWORD")
-	if adminPassword == "" {
-		adminPassword = "admin"
-	}
-	jwtSecret := os.Getenv("JWT_SECRET")
-	if jwtSecret == "" {
-		jwtSecret = "17a3229b-e5c6-4ab0-ba86-3d87cb7f23fe"
-	}
-	crmService := os.Getenv("CRM_SERVICE")
-	if crmService == "" {
-		crmService = "http://127.0.0.1:8000"
-	}
-	crmToken := os.Getenv("CRM_TOKEN")
+    jwtTTL := int64(24)
+    if raw := os.Getenv("JWT_TTL_HOURS"); raw != "" {
+        if parsed, err := strconv.ParseInt(raw, 10, 64); err == nil && parsed > 0 {
+            jwtTTL = parsed
+        }
+    }
 
-	var jwtTTL int64 = 24
+    return &Config{
+        DatabaseURL:   env("DATABASE_URL", ""),
+        DBHost:        env("DB_HOST", "localhost"),
+        DBPort:        env("DB_PORT", "5432"),
+        DBName:        env("DB_NAME", "testconstructor"),
+        DBUser:        env("DB_USER", "postgres"),
+        DBPassword:    env("DB_PASSWORD", "postgres"),
+        AdminEmail:    env("ADMIN_EMAIL", "admin@example.com"),
+        AdminPassword: env("ADMIN_PASSWORD", "admin"),
+        JWTSecret:     env("JWT_SECRET", "17a3229b-e5c6-4ab0-ba86-3d87cb7f23fe"),
+        JWTTTL:        jwtTTL,
+        CRMService:    env("CRM_SERVICE", "http://127.0.0.1:8000"),
+        CRMToken:      env("CRM_TOKEN", ""),
+        ClientURL:     env("CLIENT_URL", "http://localhost:5173"),
+        Port:          env("PORT", "8080"),
+    }
+}
 
-	return &Config{
-		dbPassword,
-		adminEmail,
-		adminPassword,
-		jwtSecret,
-		jwtTTL,
-		crmService,
-		crmToken,
-	}
+func env(key string, fallback string) string {
+    value := os.Getenv(key)
+    if value == "" {
+        return fallback
+    }
+    return value
 }

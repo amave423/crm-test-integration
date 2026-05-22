@@ -35,3 +35,8 @@
         file_server
     }
 }
+
+{$TESTING_DOMAIN} {
+    encode gzip zstd
+    reverse_proxy testing-web:80
+}

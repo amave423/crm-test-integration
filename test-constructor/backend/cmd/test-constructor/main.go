@@ -1,23 +1,23 @@
 package main
 
 import (
-	"log"
-	"net/http"
-	"test-constructor/internal/auth"
-	"test-constructor/internal/database"
-	"test-constructor/internal/handlers/admin"
-	"test-constructor/internal/handlers/intern"
-	"test-constructor/internal/handlers/manager"
-	"test-constructor/internal/middleware"
+    "log"
+    "net/http"
+    "strings"
+    "test-constructor/config"
+    "test-constructor/internal/auth"
+    "test-constructor/internal/database"
+    "test-constructor/internal/handlers/admin"
+    "test-constructor/internal/handlers/intern"
+    "test-constructor/internal/handlers/manager"
+    "test-constructor/internal/middleware"
 
-	_ "test-constructor/docs"
+    _ "test-constructor/docs"
 
-	"github.com/gorilla/mux"
-	"github.com/rs/cors"
-	httpSwagger "github.com/swaggo/http-swagger"
+    "github.com/gorilla/mux"
+    "github.com/rs/cors"
+    httpSwagger "github.com/swaggo/http-swagger"
 )
-
-const clientURL = "http://localhost:5173"
 
 // @title test constructor
 // @version 1.0
@@ -29,48 +29,56 @@ const clientURL = "http://localhost:5173"
 // @in header
 // @name Authorization
 func main() {
-	database.Connect()
+    cfg := config.Load()
+    database.Connect()
 
-	r := mux.NewRouter()
+    r := mux.NewRouter()
 
-	r.HandleFunc("/register", auth.Registration).Methods("POST")
-	r.HandleFunc("/login", auth.Login).Methods("POST")
+    r.HandleFunc("/register", auth.Registration).Methods("POST")
+    r.HandleFunc("/login", auth.Login).Methods("POST")
+    r.HandleFunc("/sso/exchange", auth.SSOExchange).Methods("POST")
 
-	api := r.PathPrefix("/api").Subrouter()
-	api.Use(middleware.AuthMiddleware)
+    api := r.PathPrefix("/api").Subrouter()
+    api.Use(middleware.AuthMiddleware)
 
-	m := api.PathPrefix("/manager").Subrouter()
-	//m.Use(middleware.ManagerMiddleware)
-	m.HandleFunc("/tests", manager.GetTests).Methods("GET")
-	m.HandleFunc("/tests", manager.CreateTest).Methods("POST")
-	m.HandleFunc("/tests/delete/{id}", manager.DeleteTest).Methods("POST")
-	m.HandleFunc("/events", manager.GetEvents).Methods("GET")
-	m.HandleFunc("/events", manager.CreateConfig).Methods("POST")
-	m.HandleFunc("/events/{id}", manager.UpdateConfig).Methods("PUT")
-	m.HandleFunc("/events/{id}/specializations", manager.GetEventSpecializations).Methods("GET")
+    m := api.PathPrefix("/manager").Subrouter()
+    m.Use(middleware.ManagerMiddleware)
+    m.HandleFunc("/tests", manager.GetTests).Methods("GET")
+    m.HandleFunc("/tests", manager.CreateTest).Methods("POST")
+    m.HandleFunc("/tests/delete/{id}", manager.DeleteTest).Methods("POST")
+    m.HandleFunc("/tests/{id}/attempts", manager.GetTestAttempts).Methods("GET")
+    m.HandleFunc("/events", manager.GetEvents).Methods("GET")
+    m.HandleFunc("/events", manager.CreateConfig).Methods("POST")
+    m.HandleFunc("/events/{id}", manager.UpdateConfig).Methods("PUT")
+    m.HandleFunc("/events/{id}/specializations", manager.GetEventSpecializations).Methods("GET")
 
-	i := api.PathPrefix("/intern").Subrouter()
-	i.Use(middleware.InternMiddleware)
-	i.HandleFunc("/tests", intern.GetAttempts).Methods("GET")
-	i.HandleFunc("/tests/{link}", intern.StartAttempt).Methods("GET")
-	i.HandleFunc("/attempt/finish", intern.FinishAttempt).Methods("POST")
+    i := api.PathPrefix("/intern").Subrouter()
+    i.Use(middleware.InternMiddleware)
+    i.HandleFunc("/tests", intern.GetAttempts).Methods("GET")
+    i.HandleFunc("/tests/{link}", intern.StartAttempt).Methods("GET")
+    i.HandleFunc("/attempt/finish", intern.FinishAttempt).Methods("POST")
 
-	a := api.PathPrefix("/admin").Subrouter()
-	a.Use(middleware.AdminMiddleware)
-	a.HandleFunc("/manager/create", admin.CreateManager).Methods("POST")
+    a := api.PathPrefix("/admin").Subrouter()
+    a.Use(middleware.AdminMiddleware)
+    a.HandleFunc("/manager/create", admin.CreateManager).Methods("POST")
 
-	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
+    r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
 
-	c := cors.New(cors.Options{
-		AllowedOrigins:   []string{clientURL, "http://127.0.0.1:8080"},
-		AllowedMethods:   []string{"GET", "POST", "PUT", "OPTIONS", "DELETE"},
-		AllowedHeaders:   []string{"Content-Type", "Authorization"},
-		AllowCredentials: true,
-		Debug:            true,
-	})
+    allowedOrigins := []string{"http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"}
+    if strings.TrimSpace(cfg.ClientURL) != "" {
+        allowedOrigins = append(allowedOrigins, strings.TrimRight(cfg.ClientURL, "/"))
+    }
 
-	handler := c.Handler(r)
+    c := cors.New(cors.Options{
+        AllowedOrigins:   allowedOrigins,
+        AllowedMethods:   []string{"GET", "POST", "PUT", "OPTIONS", "DELETE"},
+        AllowedHeaders:   []string{"Content-Type", "Authorization"},
+        AllowCredentials: true,
+    })
 
-	log.Println("Starting server on port 8080")
-	log.Fatal(http.ListenAndServe(":8080", handler))
+    handler := c.Handler(r)
+
+    log.Printf("starting server on port %s", cfg.Port)
+    log.Fatal(http.ListenAndServe(":"+cfg.Port, handler))
 }
+

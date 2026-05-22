@@ -23,6 +23,7 @@ import "../styles/createTest.css";
 import LogoutButton from "../components/LogoutButton.jsx";
 import TimeBox from "../components/details/TimeBox.jsx";
 import BackIcon from "../assets/back.svg?react";
+import { API_BASE_URL } from "../services/api.js";
 
 
 function useAppSensors() {
@@ -270,7 +271,7 @@ export default function CreateTest() {
 
     const handleSave = async () => {
         if (!title.trim()) {
-            alert("Введите название теста!");
+            alert("Р’РІРµРґРёС‚Рµ РЅР°Р·РІР°РЅРёРµ С‚РµСЃС‚Р°!");
             return;
         }
 
@@ -352,14 +353,14 @@ export default function CreateTest() {
         };
 
         console.log(
-            "Отправляемые данные на бэкенд:",
+            "РћС‚РїСЂР°РІР»СЏРµРјС‹Рµ РґР°РЅРЅС‹Рµ РЅР° Р±СЌРєРµРЅРґ:",
             JSON.stringify(testData, null, 2)
         );
 
         try {
             const token = localStorage.getItem("token");
             if (!token) {
-                alert("Требуется авторизация!");
+                alert("РўСЂРµР±СѓРµС‚СЃСЏ Р°РІС‚РѕСЂРёР·Р°С†РёСЏ!");
                 navigate("/login");
                 return;
             }
@@ -369,11 +370,11 @@ export default function CreateTest() {
                     editingTest.ID || editingTest.id || editingTest.Id;
                 if (testId) {
                     console.log(
-                        `Удаляем старый тест с ID: ${testId} перед созданием нового`
+                        `РЈРґР°Р»СЏРµРј СЃС‚Р°СЂС‹Р№ С‚РµСЃС‚ СЃ ID: ${testId} РїРµСЂРµРґ СЃРѕР·РґР°РЅРёРµРј РЅРѕРІРѕРіРѕ`
                     );
 
                     const deleteResponse = await fetch(
-                        `http://localhost:8080/api/manager/tests/delete/${testId}`,
+                        `${API_BASE_URL}/api/manager/tests/delete/${testId}`,
                         {
                             method: "POST",
                             headers: {
@@ -386,22 +387,22 @@ export default function CreateTest() {
                     const deleteResponseText =
                         await deleteResponse.text();
                     console.log(
-                        "Ответ при удалении старого теста:",
+                        "РћС‚РІРµС‚ РїСЂРё СѓРґР°Р»РµРЅРёРё СЃС‚Р°СЂРѕРіРѕ С‚РµСЃС‚Р°:",
                         deleteResponseText
                     );
 
                     if (!deleteResponse.ok) {
                         console.error(
-                            "Не удалось удалить старый тест. Создаем новый тест поверх существующего."
+                            "РќРµ СѓРґР°Р»РѕСЃСЊ СѓРґР°Р»РёС‚СЊ СЃС‚Р°СЂС‹Р№ С‚РµСЃС‚. РЎРѕР·РґР°РµРј РЅРѕРІС‹Р№ С‚РµСЃС‚ РїРѕРІРµСЂС… СЃСѓС‰РµСЃС‚РІСѓСЋС‰РµРіРѕ."
                         );
                     } else {
-                        console.log("Старый тест успешно удален");
+                        console.log("РЎС‚Р°СЂС‹Р№ С‚РµСЃС‚ СѓСЃРїРµС€РЅРѕ СѓРґР°Р»РµРЅ");
                     }
                 }
             }
 
             const response = await fetch(
-                "http://localhost:8080/api/manager/tests",
+                `${API_BASE_URL}/api/manager/tests`,
                 {
                     method: "POST",
                     headers: {
@@ -415,9 +416,9 @@ export default function CreateTest() {
             const responseText = await response.text();
 
             if (!response.ok) {
-                console.error("Ответ сервера (текст):", responseText);
-                console.error("Статус ошибки:", response.status);
-                throw new Error(`Ошибка HTTP: ${response.status}`);
+                console.error("РћС‚РІРµС‚ СЃРµСЂРІРµСЂР° (С‚РµРєСЃС‚):", responseText);
+                console.error("РЎС‚Р°С‚СѓСЃ РѕС€РёР±РєРё:", response.status);
+                throw new Error(`РћС€РёР±РєР° HTTP: ${response.status}`);
             }
 
             let result;
@@ -425,16 +426,16 @@ export default function CreateTest() {
                 result = JSON.parse(responseText);
             } catch (e) {
                 console.error(
-                    "Не удалось распарсить JSON ответ:",
+                    "РќРµ СѓРґР°Р»РѕСЃСЊ СЂР°СЃРїР°СЂСЃРёС‚СЊ JSON РѕС‚РІРµС‚:",
                     responseText
                 );
-                throw new Error("Сервер вернул некорректный JSON");
+                throw new Error("РЎРµСЂРІРµСЂ РІРµСЂРЅСѓР» РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ JSON");
             }
 
-            console.log("Успешный ответ от сервера:", result);
+            console.log("РЈСЃРїРµС€РЅС‹Р№ РѕС‚РІРµС‚ РѕС‚ СЃРµСЂРІРµСЂР°:", result);
 
 
-            console.log("Успешный ответ от сервера:", result);
+            console.log("РЈСЃРїРµС€РЅС‹Р№ РѕС‚РІРµС‚ РѕС‚ СЃРµСЂРІРµСЂР°:", result);
 
             const savedId = result?.id || result?.test_id || editingTest?.id;
             if (savedId) {
@@ -465,7 +466,7 @@ export default function CreateTest() {
                         JSON.stringify(filtered)
                     );
                 } catch (e) {
-                    console.error("Не удалось сохранить локальный тест с вопросами", e);
+                    console.error("РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ Р»РѕРєР°Р»СЊРЅС‹Р№ С‚РµСЃС‚ СЃ РІРѕРїСЂРѕСЃР°РјРё", e);
                 }
             }
 
@@ -474,17 +475,17 @@ export default function CreateTest() {
 
             alert(
                 isEditing
-                    ? "Тест успешно обновлен!"
-                    : "Тест успешно создан на сервере!"
+                    ? "РўРµСЃС‚ СѓСЃРїРµС€РЅРѕ РѕР±РЅРѕРІР»РµРЅ!"
+                    : "РўРµСЃС‚ СѓСЃРїРµС€РЅРѕ СЃРѕР·РґР°РЅ РЅР° СЃРµСЂРІРµСЂРµ!"
             );
             navigate("/tests", { replace: true });
 
         } catch (error) {
-            console.error("Ошибка при создании теста:", error);
+            console.error("РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё С‚РµСЃС‚Р°:", error);
             alert(
-                `Не удалось ${
-                    isEditing ? "обновить" : "создать"
-                } тест на сервере: ${error.message}\n\nПроверьте консоль для деталей.`
+                `РќРµ СѓРґР°Р»РѕСЃСЊ ${
+                    isEditing ? "РѕР±РЅРѕРІРёС‚СЊ" : "СЃРѕР·РґР°С‚СЊ"
+                } С‚РµСЃС‚ РЅР° СЃРµСЂРІРµСЂРµ: ${error.message}\n\nРџСЂРѕРІРµСЂСЊС‚Рµ РєРѕРЅСЃРѕР»СЊ РґР»СЏ РґРµС‚Р°Р»РµР№.`
             );
         }
     };
@@ -494,13 +495,13 @@ export default function CreateTest() {
     };
 
     const questionTypes = [
-        { key: "shortText", label: "Задания на ручной ввод" },
-        { key: "singleChoice", label: "Одиночный выбор" },
-        { key: "multipleChoice", label: "Множественный выбор" },
-        { key: "matching", label: "На соотношение" },
+        { key: "shortText", label: "Р—Р°РґР°РЅРёСЏ РЅР° СЂСѓС‡РЅРѕР№ РІРІРѕРґ" },
+        { key: "singleChoice", label: "РћРґРёРЅРѕС‡РЅС‹Р№ РІС‹Р±РѕСЂ" },
+        { key: "multipleChoice", label: "РњРЅРѕР¶РµСЃС‚РІРµРЅРЅС‹Р№ РІС‹Р±РѕСЂ" },
+        { key: "matching", label: "РќР° СЃРѕРѕС‚РЅРѕС€РµРЅРёРµ" },
         {
             key: "ordering",
-            label: "На расположение в правильном порядке",
+            label: "РќР° СЂР°СЃРїРѕР»РѕР¶РµРЅРёРµ РІ РїСЂР°РІРёР»СЊРЅРѕРј РїРѕСЂСЏРґРєРµ",
         },
     ];
 
@@ -519,14 +520,14 @@ export default function CreateTest() {
                         <button className="stat-back-btn2" onClick={handleBack}>
                             <BackIcon />
                         </button>
-                        <h1>Создание теста</h1>
+                        <h1>РЎРѕР·РґР°РЅРёРµ С‚РµСЃС‚Р°</h1>
 
                     </div>
                     <div className="tests-line"></div>
                     <div className="title-input-container">
                         <input
                             className="test-desk1"
-                            placeholder="Название"
+                            placeholder="РќР°Р·РІР°РЅРёРµ"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                         />
@@ -535,7 +536,7 @@ export default function CreateTest() {
                     <div className="title-input-container-desk">
                     <input
                         className="test-desk"
-                        placeholder="Описание теста"
+                        placeholder="РћРїРёСЃР°РЅРёРµ С‚РµСЃС‚Р°"
                         value={description}
                         onChange={(e) =>
                             setDescription(e.target.value)
@@ -584,17 +585,17 @@ export default function CreateTest() {
                             onClick={handleSave}
                         >
                             {isEditing
-                                ? "Сохранить изменения"
-                                : "Создать тест"}
+                                ? "РЎРѕС…СЂР°РЅРёС‚СЊ РёР·РјРµРЅРµРЅРёСЏ"
+                                : "РЎРѕР·РґР°С‚СЊ С‚РµСЃС‚"}
                         </button>
-                        <h3>Поля теста</h3>
+                        <h3>РџРѕР»СЏ С‚РµСЃС‚Р°</h3>
                         <div className="right-section">
                             <button
                                 className="right-btn-toggle"
                                 onClick={() => setShowQuestionMenu(!showQuestionMenu)}
                             >
-                                Добавить новый вопрос
-                                <span className={`toggle-arrow ${showQuestionMenu ? 'open' : ''}`}>▼</span>
+                                Р”РѕР±Р°РІРёС‚СЊ РЅРѕРІС‹Р№ РІРѕРїСЂРѕСЃ
+                                <span className={`toggle-arrow ${showQuestionMenu ? 'open' : ''}`}>в–ј</span>
                             </button>
 
                             {showQuestionMenu && questionTypes.map((type) => (
@@ -618,3 +619,5 @@ export default function CreateTest() {
         </div>
     );
 }
+
+

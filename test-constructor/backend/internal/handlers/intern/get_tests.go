@@ -22,13 +22,13 @@ type InternAttemptResponse struct {
 func GetAttempts(w http.ResponseWriter, r *http.Request) {
 	claims, ok := r.Context().Value(middleware.UserContextKey).(*auth.JWTClaims)
 	if !ok {
-		http.Error(w, "Пользователь не авторизован", http.StatusUnauthorized)
+		http.Error(w, "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ Р°РІС‚РѕСЂРёР·РѕРІР°РЅ", http.StatusUnauthorized)
 		return
 	}
 
 	var user models.User
 	if err := database.DB.First(&user, claims.UserID).Error; err != nil {
-		http.Error(w, "Пользователь не найден", http.StatusInternalServerError)
+		http.Error(w, "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ", http.StatusInternalServerError)
 		return
 	}
 
@@ -36,7 +36,7 @@ func GetAttempts(w http.ResponseWriter, r *http.Request) {
 	if err := database.DB.Preload("EventConfig").
 		Preload("EventConfig.ExtraThreshold").
 		Preload("EventConfig.Test").
-		Find(&attempts).Error; err != nil {
+		Where("intern_id = ?", claims.UserID).Find(&attempts).Error; err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -64,3 +64,4 @@ func GetAttempts(w http.ResponseWriter, r *http.Request) {
 		attemptsInfo,
 	})
 }
+

@@ -1,232 +1,265 @@
 package intern
 
 import (
-	"bytes"
-	"encoding/json"
-	"fmt"
-	"net/http"
-	"slices"
-	"test-constructor/config"
-	"test-constructor/internal/auth"
-	"test-constructor/internal/database"
-	"test-constructor/internal/middleware"
-	"test-constructor/internal/models"
-	"time"
+    "bytes"
+    "encoding/json"
+    "fmt"
+    "io"
+    "net/http"
+    "sort"
+    "strings"
+    "test-constructor/config"
+    "test-constructor/internal/auth"
+    "test-constructor/internal/database"
+    "test-constructor/internal/middleware"
+    "test-constructor/internal/models"
+    "time"
 
-	"gorm.io/datatypes"
+    "gorm.io/datatypes"
 )
 
 type CRMResultData struct {
-	SessionID   string `json:"session_id"`
-	TestID      string `json:"test_id"`
-	Score       int    `json:"score"`
-	MaxScore    int    `json:"max_score"`
-	IsPassed    bool   `json:"is_passed"`
-	CompletedAt string `json:"completed_at"`
-	StartedAt   string `json:"started_at"`
+    SessionID   string `json:"session_id"`
+    TestID      string `json:"test_id,omitempty"`
+    Score       int    `json:"score"`
+    MaxScore    int    `json:"max_score"`
+    IsPassed    bool   `json:"is_passed"`
+    CompletedAt string `json:"completed_at"`
+    StartedAt   string `json:"started_at"`
 }
 
 type FinishAttemptRequest struct {
-	UserAnswers []UserAnswerInfo
+    UserAnswers []UserAnswerInfo `json:"userAnswers"`
 }
 
 type UserAnswerInfo struct {
-	QuestionID uint       `json:"question_id"`
-	Answer     UserAnswer `json:"answer"`
+    QuestionID uint       `json:"question_id"`
+    Answer     UserAnswer `json:"answer"`
 }
 
 type UserAnswer struct {
-	Choices       []bool                `json:"choices,omitempty"`
-	MatchingPairs []models.MatchingPair `json:"matching,omitempty"`
-	UserInput     string                `json:"user_input,omitempty"`
-	Sequence      []models.SequenceItem `json:"sequence,omitempty"`
+    Choices       []bool                `json:"choices,omitempty"`
+    MatchingPairs []models.MatchingPair `json:"matching,omitempty"`
+    UserInput     string                `json:"user_input,omitempty"`
+    Sequence      []models.SequenceItem `json:"sequence,omitempty"`
 }
 
 type FinishAttemptResponse struct {
-	Result        string `json:"result"`
-	Score         int    `json:"score"`
-	MaxTestPoints int    `json:"max_test_points"`
-	Passed        bool   `json:"passed"`
+    Result        string `json:"result"`
+    Score         int    `json:"score"`
+    MaxTestPoints int    `json:"max_test_points"`
+    Passed        bool   `json:"passed"`
 }
 
-// @Summary Завершить тест
-// @Security ApiKeyAuth
-// @Description Получение ответов стажёра
-// @Tags intern
-// @Accept json
-// @Produce json
-// @Param answers body FinishAttemptRequest true "Answers object"
-// @Success 201 {object} FinishAttemptResponse
-// @Router /api/intern/attempt/finish [post]
 func FinishAttempt(w http.ResponseWriter, r *http.Request) {
-	claims, ok := r.Context().Value(middleware.UserContextKey).(*auth.JWTClaims)
-	if !ok {
-		http.Error(w, "Пользователь не авторизован", http.StatusUnauthorized)
-		return
-	}
+    claims, ok := r.Context().Value(middleware.UserContextKey).(*auth.JWTClaims)
+    if !ok {
+        http.Error(w, "User is not authorized", http.StatusUnauthorized)
+        return
+    }
 
-	var req FinishAttemptRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		http.Error(w, err.Error(), http.StatusBadRequest)
-		return
-	}
+    var req FinishAttemptRequest
+    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+        http.Error(w, err.Error(), http.StatusBadRequest)
+        return
+    }
 
-	var attempt models.Attempt
-	if err := database.DB.Preload("EventConfig").
-		Preload("EventConfig.ExtraThreshold").
-		Preload("EventConfig.Test").
-		Where("intern_id = ? AND end_time IS NULL", claims.UserID).
-		First(&attempt).Error; err != nil {
-		http.Error(w, "Активная попытка не найдена", http.StatusNotFound)
-		return
-	}
+    var attempt models.Attempt
+    if err := database.DB.Preload("EventConfig").
+        Preload("EventConfig.ExtraThreshold").
+        Preload("EventConfig.Test").
+        Preload("EventConfig.Test.Questions").
+        Where("intern_id = ? AND end_time IS NULL", claims.UserID).
+        First(&attempt).Error; err != nil {
+        http.Error(w, "Active attempt was not found", http.StatusNotFound)
+        return
+    }
 
-	test := attempt.EventConfig.Test
-	userPoints := 0
-	maxPoints := 0
-	for _, answerInfo := range req.UserAnswers {
-		var question models.Question
-		if err := database.DB.First(&question, answerInfo.QuestionID).Error; err != nil {
-			http.Error(w, "Вопрос не найден", http.StatusNotFound)
-			return
-		}
+    test := attempt.EventConfig.Test
+    answersByQuestion := make(map[uint]UserAnswer, len(req.UserAnswers))
+    for _, answerInfo := range req.UserAnswers {
+        answersByQuestion[answerInfo.QuestionID] = answerInfo.Answer
+    }
 
-		if question.TestID != test.ID {
-			http.Error(w, "Тесты не совпадают", http.StatusBadRequest)
-			return
-		}
+    userPoints := 0
+    maxPoints := 0
 
-		answer := answerInfo.Answer
-		maxPoints += question.Points
-		var options models.QuestionOptions
-		if err := json.Unmarshal(question.Options, &options); err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+    for _, question := range test.Questions {
+        maxPoints += question.Points
 
-		correct := true
-		switch question.Type {
-		case models.SingleChoice, models.MultipleChoice:
-			for i, choice := range options.Choices {
-				if choice.IsTrue != answer.Choices[i] {
-					correct = false
-				}
-			}
-		case models.Matching:
-			pairs := options.MatchingPairs
-			for i, pair := range pairs {
-				if pair != answer.MatchingPairs[i] {
-					correct = false
-				}
-			}
-		case models.CorrectOrder:
-			for i, item := range options.Sequence {
-				if item != answer.Sequence[i] {
-					correct = false
-				}
-			}
-		case models.TextInput:
-			if !slices.Contains(options.CorrectInput, answer.UserInput) {
-				correct = false
-			}
-		}
+        var options models.QuestionOptions
+        if err := json.Unmarshal(question.Options, &options); err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
 
-		if correct {
-			userPoints += question.Points
-		}
-		answerJSON, err := json.Marshal(answer)
-		if err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
+        answer, hasAnswer := answersByQuestion[question.ID]
+        correct := hasAnswer && isAnswerCorrect(question, options, answer)
+        if correct {
+            userPoints += question.Points
+        }
 
-		userAnswer := models.Answer{
-			QuestionID:   question.ID,
-			AttemptID:    attempt.AttemptID,
-			InternAnswer: datatypes.JSON(answerJSON),
-			IsCorrect:    correct,
-		}
+        answerJSON, err := json.Marshal(answer)
+        if err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
 
-		if err := database.DB.Create(&userAnswer).Error; err != nil {
-			http.Error(w, err.Error(), http.StatusInternalServerError)
-			return
-		}
-	}
+        answerPoints := 0.0
+        if correct {
+            answerPoints = float64(question.Points)
+        }
 
-	now := time.Now()
-	attempt.EndTime = &now
-	attempt.Score = float64(userPoints)
+        userAnswer := models.Answer{
+            QuestionID:   question.ID,
+            AttemptID:    attempt.AttemptID,
+            InternAnswer: datatypes.JSON(answerJSON),
+            IsCorrect:    correct,
+            Points:       answerPoints,
+        }
 
-	passed := float64(userPoints) > attempt.EventConfig.Threshold
+        if err := database.DB.Create(&userAnswer).Error; err != nil {
+            http.Error(w, err.Error(), http.StatusInternalServerError)
+            return
+        }
+    }
 
-	attempt.Passed = passed
-	if err := database.DB.Save(&attempt).Error; err != nil {
-		http.Error(w, err.Error(), http.StatusInternalServerError)
-		return
-	}
+    now := time.Now()
+    attempt.EndTime = &now
+    attempt.Score = float64(userPoints)
 
-	resultText := attempt.EventConfig.FailText
-	if passed {
-		resultText = attempt.EventConfig.SuccessText
-	}
+    passed := float64(userPoints) >= attempt.EventConfig.Threshold
+    attempt.Passed = passed
+    if err := database.DB.Save(&attempt).Error; err != nil {
+        http.Error(w, err.Error(), http.StatusInternalServerError)
+        return
+    }
 
-	crmResult := CRMResultData{
-		SessionID:   fmt.Sprintf("%d", attempt.AttemptID),
-		TestID:      fmt.Sprintf("%d", attempt.EventConfig.ConfigID),
-		Score:       userPoints,
-		MaxScore:    maxPoints,
-		IsPassed:    passed,
-		CompletedAt: now.Format("2006-01-02T15:04:05Z"),
-		StartedAt:   attempt.StartTime.Format("2006-01-02T15:04:05Z"),
-	}
+    resultText := attempt.EventConfig.FailText
+    if passed {
+        resultText = attempt.EventConfig.SuccessText
+    }
 
-	if err := sendResultsToCRM(crmResult, attempt.ApplicationID); err != nil {
-		fmt.Printf("Ошибка отправки результатов в CRM: %v\n", err)
-	}
+    if attempt.ApplicationID > 0 && attempt.CRMTestID > 0 {
+        crmResult := CRMResultData{
+            SessionID:   fmt.Sprintf("%d", attempt.AttemptID),
+            TestID:      fmt.Sprintf("%d", attempt.CRMTestID),
+            Score:       userPoints,
+            MaxScore:    maxPoints,
+            IsPassed:    passed,
+            CompletedAt: now.Format("2006-01-02T15:04:05Z"),
+            StartedAt:   attempt.StartTime.Format("2006-01-02T15:04:05Z"),
+        }
 
-	response := FinishAttemptResponse{
-		Result:        resultText,
-		Score:         userPoints,
-		MaxTestPoints: maxPoints,
-		Passed:        passed,
-	}
+        if err := sendResultsToCRM(crmResult, attempt.ApplicationID); err != nil {
+            fmt.Printf("CRM result sync failed: %v\n", err)
+        }
+    }
 
-	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(response)
+    response := FinishAttemptResponse{
+        Result:        resultText,
+        Score:         userPoints,
+        MaxTestPoints: maxPoints,
+        Passed:        passed,
+    }
+
+    w.Header().Set("Content-Type", "application/json")
+    json.NewEncoder(w).Encode(response)
+}
+
+func isAnswerCorrect(question models.Question, options models.QuestionOptions, answer UserAnswer) bool {
+    switch question.Type {
+    case models.SingleChoice, models.MultipleChoice:
+        for i, choice := range options.Choices {
+            selected := i < len(answer.Choices) && answer.Choices[i]
+            if choice.IsTrue != selected {
+                return false
+            }
+        }
+        return true
+
+    case models.Matching:
+        if len(answer.MatchingPairs) != len(options.MatchingPairs) {
+            return false
+        }
+        selected := make(map[string]string, len(answer.MatchingPairs))
+        for _, pair := range answer.MatchingPairs {
+            selected[pair.LeftColumn] = pair.RightColumn
+        }
+        for _, pair := range options.MatchingPairs {
+            if selected[pair.LeftColumn] != pair.RightColumn {
+                return false
+            }
+        }
+        return true
+
+    case models.CorrectOrder:
+        if len(answer.Sequence) != len(options.Sequence) {
+            return false
+        }
+        expected := append([]models.SequenceItem(nil), options.Sequence...)
+        selected := append([]models.SequenceItem(nil), answer.Sequence...)
+        sort.Slice(expected, func(i, j int) bool { return expected[i].Order < expected[j].Order })
+        sort.Slice(selected, func(i, j int) bool { return selected[i].Order < selected[j].Order })
+        for i := range expected {
+            if expected[i].Text != selected[i].Text {
+                return false
+            }
+        }
+        return true
+
+    case models.TextInput:
+        input := strings.TrimSpace(answer.UserInput)
+        for _, expected := range options.CorrectInput {
+            expected = strings.TrimSpace(expected)
+            if options.CaseSensitive {
+                if input == expected {
+                    return true
+                }
+            } else if strings.EqualFold(input, expected) {
+                return true
+            }
+        }
+        return false
+    }
+
+    return false
 }
 
 func sendResultsToCRM(result CRMResultData, applicationID uint) error {
-	cfg := config.Load()
-	crmService := cfg.CRMService
-	crmToken := cfg.CRMToken
-	url := crmService + fmt.Sprintf("/api/users/integration/applications/%d/test-results/", applicationID)
+    cfg := config.Load()
+    if cfg.CRMService == "" || cfg.CRMToken == "" {
+        return fmt.Errorf("CRM integration is not configured")
+    }
 
-	resultJSON, err := json.Marshal(result)
-	if err != nil {
-		return fmt.Errorf("ошибка маршалинга данных: %v", err)
-	}
+    url := cfg.CRMService + fmt.Sprintf("/api/users/integration/applications/%d/test-results/", applicationID)
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(resultJSON))
-	if err != nil {
-		return fmt.Errorf("ошибка создания запроса: %v", err)
-	}
+    resultJSON, err := json.Marshal(result)
+    if err != nil {
+        return fmt.Errorf("result data marshal failed: %v", err)
+    }
 
-	req.Header.Set("X-Service-Token", crmToken)
-	req.Header.Set("Accept", "application/json")
+    req, err := http.NewRequest("POST", url, bytes.NewBuffer(resultJSON))
+    if err != nil {
+        return fmt.Errorf("request creation failed: %v", err)
+    }
 
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("ошибка отправки запроса: %v", err)
-	}
-	defer resp.Body.Close()
+    req.Header.Set("Content-Type", "application/json")
+    req.Header.Set("X-Service-Token", cfg.CRMToken)
+    req.Header.Set("Accept", "application/json")
 
-	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		var errorResponse map[string]interface{}
-		json.NewDecoder(resp.Body).Decode(&errorResponse)
-		return fmt.Errorf("CRM вернул ошибку %d: %v", resp.StatusCode, errorResponse)
-	}
+    client := &http.Client{Timeout: 30 * time.Second}
+    resp, err := client.Do(req)
+    if err != nil {
+        return fmt.Errorf("CRM request failed: %v", err)
+    }
+    defer resp.Body.Close()
 
-	fmt.Println("Результаты успешно отправлены в Django")
-	return nil
+    if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
+        responseBody, _ := io.ReadAll(resp.Body)
+        return fmt.Errorf("CRM returned %d: %s", resp.StatusCode, string(responseBody))
+    }
+
+    return nil
 }
+

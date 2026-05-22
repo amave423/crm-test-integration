@@ -3,6 +3,7 @@ import { useParams, useNavigate } from "react-router-dom";
 import "../styles/StatisticsTest.css";
 import LogoutButton from "../components/LogoutButton.jsx";
 import BackIcon from "../assets/back.svg?react";
+import { testsAPI } from "../services/api.js";
 
 export default function StatisticsTest() {
     const { testId } = useParams();
@@ -25,17 +26,10 @@ export default function StatisticsTest() {
                     return;
                 }
 
-                const response = await fetch(
-                    `http://localhost:8080/api/manager/tests/${testId}/attempts`,
-                    {
-                        headers: {
-                            "Authorization": `Bearer ${token}`
-                        }
-                    }
-                );
+                const response = await testsAPI.getTestAttempts(testId);
+                const data = response.data;
 
-                if (response.ok) {
-                    const data = await response.json();
+                if (response.status >= 200 && response.status < 300) {
                     let attemptsArray = [];
                     
                     if (Array.isArray(data)) {
@@ -47,13 +41,13 @@ export default function StatisticsTest() {
                     }
 
                     setAttempts(attemptsArray);
-                    console.log("Полученные попытки:", attemptsArray);
+                    console.log("РџРѕР»СѓС‡РµРЅРЅС‹Рµ РїРѕРїС‹С‚РєРё:", attemptsArray);
                 } else {
-                    console.warn("Не удалось загрузить статистику с сервера");
+                    console.warn("РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ СЃС‚Р°С‚РёСЃС‚РёРєСѓ СЃ СЃРµСЂРІРµСЂР°");
                     setAttempts([]);
                 }
             } catch (error) {
-                console.error("Ошибка загрузки статистики:", error);
+                console.error("РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё СЃС‚Р°С‚РёСЃС‚РёРєРё:", error);
                 setAttempts([]);
             } finally {
                 setLoading(false);
@@ -89,23 +83,23 @@ export default function StatisticsTest() {
                         <button className="stat-back-btn2" onClick={handleBack}>
                             <BackIcon />
                         </button>
-                        <h1>Статистика теста</h1>
+                        <h1>РЎС‚Р°С‚РёСЃС‚РёРєР° С‚РµСЃС‚Р°</h1>
 
                     </div>
                     <div className="tests-line"></div>
                     {attempts.length === 0 ? (
                         <p className="stat-empty">
-                            По этому тесту ещё нет попыток.
+                            РџРѕ СЌС‚РѕРјСѓ С‚РµСЃС‚Сѓ РµС‰С‘ РЅРµС‚ РїРѕРїС‹С‚РѕРє.
                         </p>
                     ) : (
                         <div className="stat-attempts-table">
                             <table>
                                 <thead>
                                 <tr>
-                                    <th>Участник</th>
-                                    <th>Результат</th>
-                                    <th>Время прохождения</th>
-                                    <th>Подробная статистика</th>
+                                    <th>РЈС‡Р°СЃС‚РЅРёРє</th>
+                                    <th>Р РµР·СѓР»СЊС‚Р°С‚</th>
+                                    <th>Р’СЂРµРјСЏ РїСЂРѕС…РѕР¶РґРµРЅРёСЏ</th>
+                                    <th>РџРѕРґСЂРѕР±РЅР°СЏ СЃС‚Р°С‚РёСЃС‚РёРєР°</th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -113,12 +107,12 @@ export default function StatisticsTest() {
                                     <tr key={a.id}>
                                         <td className="stat-cell-name">{a.userName}</td>
                                         <td className="stat-cell-score">
-                                            {a.passed ? "Пройден" : "Не пройден"}
+                                            {a.passed ? "РџСЂРѕР№РґРµРЅ" : "РќРµ РїСЂРѕР№РґРµРЅ"}
                                         </td>
 
                                         <td className="stat-cell-time">
                                             {a.durationMinutes != null
-                                                ? `${a.durationMinutes} мин`
+                                                ? `${a.durationMinutes} РјРёРЅ`
                                                 : ""}
                                         </td>
                                         <td className="stat-cell-button">
@@ -126,7 +120,7 @@ export default function StatisticsTest() {
                                                 className="stat-details-btn"
                                                 onClick={() => handleOpenDetails(a)}
                                             >
-                                                Открыть подробную статистику
+                                                РћС‚РєСЂС‹С‚СЊ РїРѕРґСЂРѕР±РЅСѓСЋ СЃС‚Р°С‚РёСЃС‚РёРєСѓ
                                             </button>
                                         </td>
                                     </tr>
@@ -140,19 +134,19 @@ export default function StatisticsTest() {
                     {selectedAttempt && (
                         <div className="stat-modal-overlay">
                             <div className="stat-modal">
-                                <h3>Подробная статистика</h3>
+                                <h3>РџРѕРґСЂРѕР±РЅР°СЏ СЃС‚Р°С‚РёСЃС‚РёРєР°</h3>
 
                                 <div className="stat-details-user">
                                     <p>
-                                        <strong>Участник:</strong>{" "}
+                                        <strong>РЈС‡Р°СЃС‚РЅРёРє:</strong>{" "}
                                         {selectedAttempt.userName}
                                     </p>
                                     <p>
-                                        <strong>Почта:</strong>{" "}
+                                        <strong>РџРѕС‡С‚Р°:</strong>{" "}
                                         {selectedAttempt.userEmail}
                                     </p>
                                     <p>
-                                        <strong>Результат теста:</strong>{" "}
+                                        <strong>Р РµР·СѓР»СЊС‚Р°С‚ С‚РµСЃС‚Р°:</strong>{" "}
                                         {selectedAttempt.score}/{selectedAttempt.totalMax}
                                     </p>
                                 </div>
@@ -161,8 +155,8 @@ export default function StatisticsTest() {
                                     <table className="stat-table">
                                         <thead>
                                         <tr>
-                                            <th>Вопрос</th>
-                                            <th>Баллы</th>
+                                            <th>Р’РѕРїСЂРѕСЃ</th>
+                                            <th>Р‘Р°Р»Р»С‹</th>
                                         </tr>
                                         </thead>
                                         <tbody>
@@ -182,7 +176,7 @@ export default function StatisticsTest() {
                                     className="stat-hide-btn"
                                     onClick={handleCloseDetails}
                                 >
-                                    Скрыть подробную статистику
+                                    РЎРєСЂС‹С‚СЊ РїРѕРґСЂРѕР±РЅСѓСЋ СЃС‚Р°С‚РёСЃС‚РёРєСѓ
                                 </button>
                             </div>
                         </div>
@@ -193,3 +187,5 @@ export default function StatisticsTest() {
         </div>
     );
 }
+
+
