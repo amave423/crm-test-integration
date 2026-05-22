@@ -40,7 +40,7 @@ export default function Tests() {
 
                 const response = await testsAPI.getTests();
                 const data = response.data;
-                console.log("РџРѕР»СѓС‡РµРЅРЅС‹Рµ С‚РµСЃС‚С‹:", data);
+                console.log("Полученные тесты:", data);
 
                 let testsArray = [];
                 if (Array.isArray(data)) {
@@ -50,7 +50,7 @@ export default function Tests() {
                 } else if (data.data && Array.isArray(data.data)) {
                     testsArray = data.data;
                 } else {
-                    console.error("РќРµРёР·РІРµСЃС‚РЅР°СЏ СЃС‚СЂСѓРєС‚СѓСЂР° РѕС‚РІРµС‚Р°:", data);
+                    console.error("Неизвестная структура ответа:", data);
                 }
 
                 const normalizedTests = testsArray.map(test => ({
@@ -62,8 +62,8 @@ export default function Tests() {
                 console.log('ids:', normalizedTests.map(t => t.id));
 
             } catch (error) {
-                console.error("РћС€РёР±РєР°:", error);
-                alert("РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ С‚РµСЃС‚С‹");
+                console.error("Ошибка:", error);
+                alert("Не удалось загрузить тесты");
             }
         };
 
@@ -95,7 +95,7 @@ export default function Tests() {
     }, []);
 
     const editTest = (test) => {
-        console.log("РўРµСЃС‚ РґР»СЏ СЂРµРґР°РєС‚РёСЂРѕРІР°РЅРёСЏ:", test);
+        console.log("Тест для редактирования:", test);
         navigate("/create", {
             state: { editing: true, test: test, deleteOnSave: true },
         });
@@ -109,12 +109,12 @@ export default function Tests() {
         try {
             const token = localStorage.getItem("token");
             if (!token) {
-                alert("РўСЂРµР±СѓРµС‚СЃСЏ Р°РІС‚РѕСЂРёР·Р°С†РёСЏ");
+                alert("Требуется авторизация");
                 navigate("/login");
                 return;
             }
 
-            console.log("РЈРґР°Р»РµРЅРёРµ С‚РµСЃС‚Р° СЃ ID:", id);
+            console.log("Удаление теста с ID:", id);
             await testsAPI.deleteTest(id);
 
             const updatedTests = tests.filter(test => {
@@ -127,8 +127,8 @@ export default function Tests() {
             setConfirmModalOpen(false);
 
         } catch (error) {
-            console.error("РћС€РёР±РєР° РїСЂРё СѓРґР°Р»РµРЅРёРё С‚РµСЃС‚Р°:", error);
-            alert("РќРµ СѓРґР°Р»РѕСЃСЊ СѓРґР°Р»РёС‚СЊ С‚РµСЃС‚ РЅР° СЃРµСЂРІРµСЂРµ. РџСЂРѕРІРµСЂСЊС‚Рµ РєРѕРЅСЃРѕР»СЊ РґР»СЏ РґРµС‚Р°Р»РµР№.");
+            console.error("Ошибка при удалении теста:", error);
+            alert("Не удалось удалить тест на сервере. Проверьте консоль для деталей.");
         }
     };
 
@@ -152,8 +152,8 @@ export default function Tests() {
             setShareLink(link);
             setShareModalOpen(true);
         } catch (error) {
-            console.error("РћС€РёР±РєР° РїСЂРё РїРѕРґРіРѕС‚РѕРІРєРµ СЃСЃС‹Р»РєРё:", error);
-            alert("РќРµ СѓРґР°Р»РѕСЃСЊ РїРѕРґРіРѕС‚РѕРІРёС‚СЊ СЃСЃС‹Р»РєСѓ");
+            console.error("Ошибка при подготовке ссылки:", error);
+            alert("Не удалось подготовить ссылку");
         }
         setOpenMenuId(null);
     };
@@ -180,28 +180,28 @@ export default function Tests() {
             </>
             <div className="tests-wrapper">
                 <div className="tests-left">
-                    {/* РќР°РІРёРіР°С†РёРѕРЅРЅС‹Рµ РІРєР»Р°РґРєРё */}
+                    {/* Навигационные вкладки */}
                     <div className="tests-tabs">
                         <button
                             className="tab-btn tab-btn-active"
                             onClick={() => navigate("/tests")}
                         >
                             <TaskIcon />
-                            РўРµСЃС‚РѕРІС‹Рµ Р·Р°РґР°РЅРёСЏ
+                            Тестовые задания
                         </button>
                         <button
                             className="tab-btn"
                             onClick={() => navigate("/events")}
                         >
                             <EventIcon />
-                            РњРµСЂРѕРїСЂРёСЏС‚РёСЏ
+                            Мероприятия
                         </button>
                         <button
                             className="tab-btn"
                             onClick={() => navigate("/candidates")}
                         >
                             <CandidatesIcon />
-                            РљР°РЅРґРёРґР°С‚С‹
+                            Кандидаты
                         </button>
                     </div>
                     {/* <div className="tests-line"></div> */}
@@ -209,7 +209,7 @@ export default function Tests() {
 
                     {tests.length === 0 ? (
                         <div className="no-tests">
-                            РџРѕРєР° РЅРµС‚ С‚РµСЃС‚РѕРІ. РЎРѕР·РґР°Р№С‚Рµ РїРµСЂРІС‹Р№ С‚РµСЃС‚ в†’
+                            Пока нет тестов. Создайте первый тест →
                         </div>
                     ) : (
                         <div className="tests-grid">
@@ -234,27 +234,27 @@ export default function Tests() {
                                                 className="dots-btn"
                                                 onClick={(e) => toggleMenu(testId, e)}
                                             >
-                                                в‹®
+                                                ⋮
                                             </button>
 
                                             {openMenuId === testId && (
                                                 <div className="dropdown-menu">
                                                     <button className="menu-item" onClick={() => editTest(test)}>
                                                         <EditIcon className="menu-icon" />
-                                                        <span>Р РµРґР°РєС‚РёСЂРѕРІР°С‚СЊ</span>
+                                                        <span>Редактировать</span>
                                                     </button>
                                                     <button className="menu-item share" onClick={() => shareTest(test)}>
                                                         <ShareIcon className="menu-icon" />
-                                                        <span>РџРѕРґРµР»РёС‚СЊСЃСЏ</span>
+                                                        <span>Поделиться</span>
                                                     </button>
                                                     <button className="menu-item" onClick={() => viewStatistics(test)}>
                                                         <StatisticsIcon className="menu-icon" />
-                                                        <span>РЎС‚Р°С‚РёСЃС‚РёРєР°</span>
+                                                        <span>Статистика</span>
                                                     </button>
 
                                                     <button className="menu-item" onClick={() => openDeleteConfirm(test)}>
                                                         <DeleteIcon className="menu-icon" />
-                                                        <span>РЈРґР°Р»РёС‚СЊ С‚РµСЃС‚</span>
+                                                        <span>Удалить тест</span>
                                                     </button>
                                                 </div>
                                             )}
@@ -262,11 +262,11 @@ export default function Tests() {
                                         <span className="test-titles">
                                             {testTitle && testTitle.length > 15
                                                 ? `${testTitle.substring(0, 15)}...`
-                                                : testTitle || "Р‘РµР· РЅР°Р·РІР°РЅРёСЏ"
+                                                : testTitle || "Без названия"
                                             }
                                         </span>
                                         {!isActive && (
-                                            <div className="test-status">Р—РђРљР Р«Рў</div>
+                                            <div className="test-status">ЗАКРЫТ</div>
                                         )}
                                     </div>
                                 );
@@ -277,7 +277,7 @@ export default function Tests() {
 
                 <div className="tests-right">
                     <button className="create-test-btn" onClick={() => navigate("/create")}>
-                        РЎРѕР·РґР°С‚СЊ С‚РµСЃС‚
+                        Создать тест
                     </button>
                 </div>
             </div>
@@ -287,7 +287,7 @@ export default function Tests() {
                         className="share-modal"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <h3 className="share-modal-title">РџРѕРґРµР»РёС‚СЊСЃСЏ СЃСЃС‹Р»РєРѕР№</h3>
+                        <h3 className="share-modal-title">Поделиться ссылкой</h3>
 
                         <div className="share-modal-body">
                             <input
@@ -302,8 +302,8 @@ export default function Tests() {
                                     try {
                                         await navigator.clipboard.writeText(shareLink);
                                     } catch (e) {
-                                        console.error("РћС€РёР±РєР° РєРѕРїРёСЂРѕРІР°РЅРёСЏ:", e);
-                                        alert("РќРµ СѓРґР°Р»РѕСЃСЊ СЃРєРѕРїРёСЂРѕРІР°С‚СЊ СЃСЃС‹Р»РєСѓ");
+                                        console.error("Ошибка копирования:", e);
+                                        alert("Не удалось скопировать ссылку");
                                     }
                                 }}
                             >
@@ -320,10 +320,10 @@ export default function Tests() {
                         className="confirm-modal"
                         onClick={(e) => e.stopPropagation()}
                     >
-                        <h3 className="confirm-modal-title">РЈРґР°Р»РёС‚СЊ С‚РµСЃС‚</h3>
+                        <h3 className="confirm-modal-title">Удалить тест</h3>
                         <p className="confirm-modal-message">
-                            Р’С‹ СѓРІРµСЂРµРЅС‹, С‡С‚Рѕ С…РѕС‚РёС‚Рµ СѓРґР°Р»РёС‚СЊ С‚РµСЃС‚
-                            <strong> "{testToDelete.Title || testToDelete.title || "Р‘РµР· РЅР°Р·РІР°РЅРёСЏ"}"</strong>?
+                            Вы уверены, что хотите удалить тест
+                            <strong> "{testToDelete.Title || testToDelete.title || "Без названия"}"</strong>?
                             <br />
                         </p>
                         <div className="confirm-modal-buttons">
@@ -331,13 +331,13 @@ export default function Tests() {
                                 className="confirm-modal-btn confirm-modal-btn-cancel"
                                 onClick={closeDeleteConfirm}
                             >
-                                РћС‚РјРµРЅР°
+                                Отмена
                             </button>
                             <button
                                 className="confirm-modal-btn confirm-modal-btn-delete"
                                 onClick={() => deleteTest(testToDelete.id)}
                             >
-                                РЈРґР°Р»РёС‚СЊ
+                                Удалить
                             </button>
                         </div>
                     </div>

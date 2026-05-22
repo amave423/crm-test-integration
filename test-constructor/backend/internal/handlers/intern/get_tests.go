@@ -22,13 +22,13 @@ type InternAttemptResponse struct {
 func GetAttempts(w http.ResponseWriter, r *http.Request) {
 	claims, ok := r.Context().Value(middleware.UserContextKey).(*auth.JWTClaims)
 	if !ok {
-		http.Error(w, "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ Р°РІС‚РѕСЂРёР·РѕРІР°РЅ", http.StatusUnauthorized)
+		http.Error(w, "Пользователь не авторизован", http.StatusUnauthorized)
 		return
 	}
 
 	var user models.User
 	if err := database.DB.First(&user, claims.UserID).Error; err != nil {
-		http.Error(w, "РџРѕР»СЊР·РѕРІР°С‚РµР»СЊ РЅРµ РЅР°Р№РґРµРЅ", http.StatusInternalServerError)
+		http.Error(w, "Пользователь не найден", http.StatusInternalServerError)
 		return
 	}
 

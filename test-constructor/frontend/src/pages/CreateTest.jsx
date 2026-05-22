@@ -271,7 +271,7 @@ export default function CreateTest() {
 
     const handleSave = async () => {
         if (!title.trim()) {
-            alert("Р’РІРµРґРёС‚Рµ РЅР°Р·РІР°РЅРёРµ С‚РµСЃС‚Р°!");
+            alert("Введите название теста!");
             return;
         }
 
@@ -353,14 +353,14 @@ export default function CreateTest() {
         };
 
         console.log(
-            "РћС‚РїСЂР°РІР»СЏРµРјС‹Рµ РґР°РЅРЅС‹Рµ РЅР° Р±СЌРєРµРЅРґ:",
+            "Отправляемые данные на бэкенд:",
             JSON.stringify(testData, null, 2)
         );
 
         try {
             const token = localStorage.getItem("token");
             if (!token) {
-                alert("РўСЂРµР±СѓРµС‚СЃСЏ Р°РІС‚РѕСЂРёР·Р°С†РёСЏ!");
+                alert("Требуется авторизация!");
                 navigate("/login");
                 return;
             }
@@ -370,7 +370,7 @@ export default function CreateTest() {
                     editingTest.ID || editingTest.id || editingTest.Id;
                 if (testId) {
                     console.log(
-                        `РЈРґР°Р»СЏРµРј СЃС‚Р°СЂС‹Р№ С‚РµСЃС‚ СЃ ID: ${testId} РїРµСЂРµРґ СЃРѕР·РґР°РЅРёРµРј РЅРѕРІРѕРіРѕ`
+                        `Удаляем старый тест с ID: ${testId} перед созданием нового`
                     );
 
                     const deleteResponse = await fetch(
@@ -387,16 +387,16 @@ export default function CreateTest() {
                     const deleteResponseText =
                         await deleteResponse.text();
                     console.log(
-                        "РћС‚РІРµС‚ РїСЂРё СѓРґР°Р»РµРЅРёРё СЃС‚Р°СЂРѕРіРѕ С‚РµСЃС‚Р°:",
+                        "Ответ при удалении старого теста:",
                         deleteResponseText
                     );
 
                     if (!deleteResponse.ok) {
                         console.error(
-                            "РќРµ СѓРґР°Р»РѕСЃСЊ СѓРґР°Р»РёС‚СЊ СЃС‚Р°СЂС‹Р№ С‚РµСЃС‚. РЎРѕР·РґР°РµРј РЅРѕРІС‹Р№ С‚РµСЃС‚ РїРѕРІРµСЂС… СЃСѓС‰РµСЃС‚РІСѓСЋС‰РµРіРѕ."
+                            "Не удалось удалить старый тест. Создаем новый тест поверх существующего."
                         );
                     } else {
-                        console.log("РЎС‚Р°СЂС‹Р№ С‚РµСЃС‚ СѓСЃРїРµС€РЅРѕ СѓРґР°Р»РµРЅ");
+                        console.log("Старый тест успешно удален");
                     }
                 }
             }
@@ -416,9 +416,9 @@ export default function CreateTest() {
             const responseText = await response.text();
 
             if (!response.ok) {
-                console.error("РћС‚РІРµС‚ СЃРµСЂРІРµСЂР° (С‚РµРєСЃС‚):", responseText);
-                console.error("РЎС‚Р°С‚СѓСЃ РѕС€РёР±РєРё:", response.status);
-                throw new Error(`РћС€РёР±РєР° HTTP: ${response.status}`);
+                console.error("Ответ сервера (текст):", responseText);
+                console.error("Статус ошибки:", response.status);
+                throw new Error(`Ошибка HTTP: ${response.status}`);
             }
 
             let result;
@@ -426,16 +426,16 @@ export default function CreateTest() {
                 result = JSON.parse(responseText);
             } catch (e) {
                 console.error(
-                    "РќРµ СѓРґР°Р»РѕСЃСЊ СЂР°СЃРїР°СЂСЃРёС‚СЊ JSON РѕС‚РІРµС‚:",
+                    "Не удалось распарсить JSON ответ:",
                     responseText
                 );
-                throw new Error("РЎРµСЂРІРµСЂ РІРµСЂРЅСѓР» РЅРµРєРѕСЂСЂРµРєС‚РЅС‹Р№ JSON");
+                throw new Error("Сервер вернул некорректный JSON");
             }
 
-            console.log("РЈСЃРїРµС€РЅС‹Р№ РѕС‚РІРµС‚ РѕС‚ СЃРµСЂРІРµСЂР°:", result);
+            console.log("Успешный ответ от сервера:", result);
 
 
-            console.log("РЈСЃРїРµС€РЅС‹Р№ РѕС‚РІРµС‚ РѕС‚ СЃРµСЂРІРµСЂР°:", result);
+            console.log("Успешный ответ от сервера:", result);
 
             const savedId = result?.id || result?.test_id || editingTest?.id;
             if (savedId) {
@@ -466,7 +466,7 @@ export default function CreateTest() {
                         JSON.stringify(filtered)
                     );
                 } catch (e) {
-                    console.error("РќРµ СѓРґР°Р»РѕСЃСЊ СЃРѕС…СЂР°РЅРёС‚СЊ Р»РѕРєР°Р»СЊРЅС‹Р№ С‚РµСЃС‚ СЃ РІРѕРїСЂРѕСЃР°РјРё", e);
+                    console.error("Не удалось сохранить локальный тест с вопросами", e);
                 }
             }
 
@@ -475,17 +475,17 @@ export default function CreateTest() {
 
             alert(
                 isEditing
-                    ? "РўРµСЃС‚ СѓСЃРїРµС€РЅРѕ РѕР±РЅРѕРІР»РµРЅ!"
-                    : "РўРµСЃС‚ СѓСЃРїРµС€РЅРѕ СЃРѕР·РґР°РЅ РЅР° СЃРµСЂРІРµСЂРµ!"
+                    ? "Тест успешно обновлен!"
+                    : "Тест успешно создан на сервере!"
             );
             navigate("/tests", { replace: true });
 
         } catch (error) {
-            console.error("РћС€РёР±РєР° РїСЂРё СЃРѕР·РґР°РЅРёРё С‚РµСЃС‚Р°:", error);
+            console.error("Ошибка при создании теста:", error);
             alert(
-                `РќРµ СѓРґР°Р»РѕСЃСЊ ${
-                    isEditing ? "РѕР±РЅРѕРІРёС‚СЊ" : "СЃРѕР·РґР°С‚СЊ"
-                } С‚РµСЃС‚ РЅР° СЃРµСЂРІРµСЂРµ: ${error.message}\n\nРџСЂРѕРІРµСЂСЊС‚Рµ РєРѕРЅСЃРѕР»СЊ РґР»СЏ РґРµС‚Р°Р»РµР№.`
+                `Не удалось ${
+                    isEditing ? "обновить" : "создать"
+                } тест на сервере: ${error.message}\n\nПроверьте консоль для деталей.`
             );
         }
     };
@@ -495,13 +495,13 @@ export default function CreateTest() {
     };
 
     const questionTypes = [
-        { key: "shortText", label: "Р—Р°РґР°РЅРёСЏ РЅР° СЂСѓС‡РЅРѕР№ РІРІРѕРґ" },
-        { key: "singleChoice", label: "РћРґРёРЅРѕС‡РЅС‹Р№ РІС‹Р±РѕСЂ" },
-        { key: "multipleChoice", label: "РњРЅРѕР¶РµСЃС‚РІРµРЅРЅС‹Р№ РІС‹Р±РѕСЂ" },
-        { key: "matching", label: "РќР° СЃРѕРѕС‚РЅРѕС€РµРЅРёРµ" },
+        { key: "shortText", label: "Задания на ручной ввод" },
+        { key: "singleChoice", label: "Одиночный выбор" },
+        { key: "multipleChoice", label: "Множественный выбор" },
+        { key: "matching", label: "На соотношение" },
         {
             key: "ordering",
-            label: "РќР° СЂР°СЃРїРѕР»РѕР¶РµРЅРёРµ РІ РїСЂР°РІРёР»СЊРЅРѕРј РїРѕСЂСЏРґРєРµ",
+            label: "На расположение в правильном порядке",
         },
     ];
 
@@ -520,14 +520,14 @@ export default function CreateTest() {
                         <button className="stat-back-btn2" onClick={handleBack}>
                             <BackIcon />
                         </button>
-                        <h1>РЎРѕР·РґР°РЅРёРµ С‚РµСЃС‚Р°</h1>
+                        <h1>Создание теста</h1>
 
                     </div>
                     <div className="tests-line"></div>
                     <div className="title-input-container">
                         <input
                             className="test-desk1"
-                            placeholder="РќР°Р·РІР°РЅРёРµ"
+                            placeholder="Название"
                             value={title}
                             onChange={(e) => setTitle(e.target.value)}
                         />
@@ -536,7 +536,7 @@ export default function CreateTest() {
                     <div className="title-input-container-desk">
                     <input
                         className="test-desk"
-                        placeholder="РћРїРёСЃР°РЅРёРµ С‚РµСЃС‚Р°"
+                        placeholder="Описание теста"
                         value={description}
                         onChange={(e) =>
                             setDescription(e.target.value)
@@ -585,17 +585,17 @@ export default function CreateTest() {
                             onClick={handleSave}
                         >
                             {isEditing
-                                ? "РЎРѕС…СЂР°РЅРёС‚СЊ РёР·РјРµРЅРµРЅРёСЏ"
-                                : "РЎРѕР·РґР°С‚СЊ С‚РµСЃС‚"}
+                                ? "Сохранить изменения"
+                                : "Создать тест"}
                         </button>
-                        <h3>РџРѕР»СЏ С‚РµСЃС‚Р°</h3>
+                        <h3>Поля теста</h3>
                         <div className="right-section">
                             <button
                                 className="right-btn-toggle"
                                 onClick={() => setShowQuestionMenu(!showQuestionMenu)}
                             >
-                                Р”РѕР±Р°РІРёС‚СЊ РЅРѕРІС‹Р№ РІРѕРїСЂРѕСЃ
-                                <span className={`toggle-arrow ${showQuestionMenu ? 'open' : ''}`}>в–ј</span>
+                                Добавить новый вопрос
+                                <span className={`toggle-arrow ${showQuestionMenu ? 'open' : ''}`}>▼</span>
                             </button>
 
                             {showQuestionMenu && questionTypes.map((type) => (

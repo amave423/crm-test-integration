@@ -41,13 +41,13 @@ export default function StatisticsTest() {
                     }
 
                     setAttempts(attemptsArray);
-                    console.log("РџРѕР»СѓС‡РµРЅРЅС‹Рµ РїРѕРїС‹С‚РєРё:", attemptsArray);
+                    console.log("Полученные попытки:", attemptsArray);
                 } else {
-                    console.warn("РќРµ СѓРґР°Р»РѕСЃСЊ Р·Р°РіСЂСѓР·РёС‚СЊ СЃС‚Р°С‚РёСЃС‚РёРєСѓ СЃ СЃРµСЂРІРµСЂР°");
+                    console.warn("Не удалось загрузить статистику с сервера");
                     setAttempts([]);
                 }
             } catch (error) {
-                console.error("РћС€РёР±РєР° Р·Р°РіСЂСѓР·РєРё СЃС‚Р°С‚РёСЃС‚РёРєРё:", error);
+                console.error("Ошибка загрузки статистики:", error);
                 setAttempts([]);
             } finally {
                 setLoading(false);
@@ -83,23 +83,23 @@ export default function StatisticsTest() {
                         <button className="stat-back-btn2" onClick={handleBack}>
                             <BackIcon />
                         </button>
-                        <h1>РЎС‚Р°С‚РёСЃС‚РёРєР° С‚РµСЃС‚Р°</h1>
+                        <h1>Статистика теста</h1>
 
                     </div>
                     <div className="tests-line"></div>
                     {attempts.length === 0 ? (
                         <p className="stat-empty">
-                            РџРѕ СЌС‚РѕРјСѓ С‚РµСЃС‚Сѓ РµС‰С‘ РЅРµС‚ РїРѕРїС‹С‚РѕРє.
+                            По этому тесту ещё нет попыток.
                         </p>
                     ) : (
                         <div className="stat-attempts-table">
                             <table>
                                 <thead>
                                 <tr>
-                                    <th>РЈС‡Р°СЃС‚РЅРёРє</th>
-                                    <th>Р РµР·СѓР»СЊС‚Р°С‚</th>
-                                    <th>Р’СЂРµРјСЏ РїСЂРѕС…РѕР¶РґРµРЅРёСЏ</th>
-                                    <th>РџРѕРґСЂРѕР±РЅР°СЏ СЃС‚Р°С‚РёСЃС‚РёРєР°</th>
+                                    <th>Участник</th>
+                                    <th>Результат</th>
+                                    <th>Время прохождения</th>
+                                    <th>Подробная статистика</th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -107,12 +107,12 @@ export default function StatisticsTest() {
                                     <tr key={a.id}>
                                         <td className="stat-cell-name">{a.userName}</td>
                                         <td className="stat-cell-score">
-                                            {a.passed ? "РџСЂРѕР№РґРµРЅ" : "РќРµ РїСЂРѕР№РґРµРЅ"}
+                                            {a.passed ? "Пройден" : "Не пройден"}
                                         </td>
 
                                         <td className="stat-cell-time">
                                             {a.durationMinutes != null
-                                                ? `${a.durationMinutes} РјРёРЅ`
+                                                ? `${a.durationMinutes} мин`
                                                 : ""}
                                         </td>
                                         <td className="stat-cell-button">
@@ -120,7 +120,7 @@ export default function StatisticsTest() {
                                                 className="stat-details-btn"
                                                 onClick={() => handleOpenDetails(a)}
                                             >
-                                                РћС‚РєСЂС‹С‚СЊ РїРѕРґСЂРѕР±РЅСѓСЋ СЃС‚Р°С‚РёСЃС‚РёРєСѓ
+                                                Открыть подробную статистику
                                             </button>
                                         </td>
                                     </tr>
@@ -134,19 +134,19 @@ export default function StatisticsTest() {
                     {selectedAttempt && (
                         <div className="stat-modal-overlay">
                             <div className="stat-modal">
-                                <h3>РџРѕРґСЂРѕР±РЅР°СЏ СЃС‚Р°С‚РёСЃС‚РёРєР°</h3>
+                                <h3>Подробная статистика</h3>
 
                                 <div className="stat-details-user">
                                     <p>
-                                        <strong>РЈС‡Р°СЃС‚РЅРёРє:</strong>{" "}
+                                        <strong>Участник:</strong>{" "}
                                         {selectedAttempt.userName}
                                     </p>
                                     <p>
-                                        <strong>РџРѕС‡С‚Р°:</strong>{" "}
+                                        <strong>Почта:</strong>{" "}
                                         {selectedAttempt.userEmail}
                                     </p>
                                     <p>
-                                        <strong>Р РµР·СѓР»СЊС‚Р°С‚ С‚РµСЃС‚Р°:</strong>{" "}
+                                        <strong>Результат теста:</strong>{" "}
                                         {selectedAttempt.score}/{selectedAttempt.totalMax}
                                     </p>
                                 </div>
@@ -155,8 +155,8 @@ export default function StatisticsTest() {
                                     <table className="stat-table">
                                         <thead>
                                         <tr>
-                                            <th>Р’РѕРїСЂРѕСЃ</th>
-                                            <th>Р‘Р°Р»Р»С‹</th>
+                                            <th>Вопрос</th>
+                                            <th>Баллы</th>
                                         </tr>
                                         </thead>
                                         <tbody>
@@ -176,7 +176,7 @@ export default function StatisticsTest() {
                                     className="stat-hide-btn"
                                     onClick={handleCloseDetails}
                                 >
-                                    РЎРєСЂС‹С‚СЊ РїРѕРґСЂРѕР±РЅСѓСЋ СЃС‚Р°С‚РёСЃС‚РёРєСѓ
+                                    Скрыть подробную статистику
                                 </button>
                             </div>
                         </div>

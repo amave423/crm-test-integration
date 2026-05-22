@@ -102,6 +102,14 @@ function writeEventExtension(id: number, patch: Partial<Event>) {
   localStorage.setItem(LS_EVENT_EXTENSIONS, JSON.stringify(current));
 }
 
+function replaceEventExtension(id: number, patch: Partial<Event>) {
+  if (!Number.isFinite(id) || id <= 0) return;
+
+  const current = readEventExtensions();
+  current[String(id)] = { ...patch };
+  localStorage.setItem(LS_EVENT_EXTENSIONS, JSON.stringify(current));
+}
+
 function asRecord(value: unknown): UnknownRecord {
   return value && typeof value === "object" ? (value as UnknownRecord) : {};
 }
@@ -309,7 +317,7 @@ async function mapEventToUi(data: unknown): Promise<Event> {
   const event = normalizeBackendEvent(data);
   const specs = await getSpecializations();
   const plannerState = readPlannerState(USE_MOCK);
-  const archivedIds = new Set(getArchivedEventIds());
+  const archivedIds = USE_MOCK ? new Set(getArchivedEventIds()) : new Set<number>();
   const eventId = Number(event.id ?? 0);
   const isEnrollmentClosed = plannerState.closedEventIds.includes(eventId);
   const organizerIds = event.organizerIds?.length
@@ -338,7 +346,7 @@ async function mapEventToUi(data: unknown): Promise<Event> {
     applicationFormFields: event.applicationFormFields ?? event.application_form_fields,
   };
 
-  const extension = getEventExtension(eventId);
+  const extension = USE_MOCK ? getEventExtension(eventId) : {};
 
   return {
     ...baseEvent,
@@ -357,7 +365,7 @@ export async function getEvents(): Promise<Event[]> {
   const raw = USE_MOCK ? await getStoredEvents() : await client.get("/api/users/events/");
   const list = Array.isArray(raw) ? raw : [];
   const events = await Promise.all(list.map((event) => mapEventToUi(event)));
-  const archivedIds = new Set(getArchivedEventIds());
+  const archivedIds = USE_MOCK ? new Set(getArchivedEventIds()) : new Set<number>();
 
   return events.filter((event) => !event.archived && !archivedIds.has(Number(event.id)));
 }
@@ -489,8 +497,11 @@ export async function saveEvent(data: Event): Promise<Event> {
     orgChatUrl: data.orgChatUrl ?? mapped.orgChatUrl,
     orgChatPeerId: data.orgChatPeerId ?? mapped.orgChatPeerId,
     applicationFormFields: data.applicationFormFields ?? mapped.applicationFormFields,
+    archived: false,
+    archivedAt: undefined,
   };
-  writeEventExtension(Number(mapped.id), extension);
+  forgetArchivedEventId(Number(mapped.id));
+  replaceEventExtension(Number(mapped.id), extension);
 
   return {
     ...mapped,
