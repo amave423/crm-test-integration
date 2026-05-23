@@ -21,7 +21,6 @@ export default function MyTestStudent() {
 
                 const response = await testsAPI.getAttempts();
                 const data = response.data;
-                console.log("Полученные попытки тестов:", data);
 
                 let testsArray = [];
                 if (Array.isArray(data)) {

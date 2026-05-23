@@ -9,7 +9,9 @@ import (
 	"test-constructor/internal/middleware"
 	"test-constructor/internal/models"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/mux"
+	"gorm.io/gorm"
 )
 
 type EventCfgInfo struct {
@@ -29,14 +31,6 @@ type ExtraThresholdInfo struct {
 	TestID    uint    `json:"test_id"`
 }
 
-// @Summary Создать настройку мероприятия
-// @Security ApiKeyAuth
-// @Tags manager
-// @Accept json
-// @Produce json
-// @Param test body EventCfgInfo true "EventCfg object"
-// @Success 201 {object} map[string]interface{}
-// @Router /api/manager/events [post]
 func CreateConfig(w http.ResponseWriter, r *http.Request) {
 	claims, ok := r.Context().Value(middleware.UserContextKey).(*auth.JWTClaims)
 	if !ok {
@@ -57,6 +51,7 @@ func CreateConfig(w http.ResponseWriter, r *http.Request) {
 
 	if req.Threshold < 1 {
 		http.Error(w, "Пороговое значение должно быть положительным", http.StatusBadRequest)
+		return
 	}
 
 	userID := claims.UserID
@@ -67,33 +62,66 @@ func CreateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer func() {
-		if r := recover(); r != nil {
+		if recovered := recover(); recovered != nil {
 			transaction.Rollback()
 			http.Error(w, "Ошибка сервера", http.StatusInternalServerError)
-			return
 		}
 	}()
 
-	eventCFG := models.EventConfig{
-		EventID:          req.EventID,
-		SpecializationID: req.SpecializationID,
-		TestID:           req.TestID,
-		CreatorID:        userID,
-		SuccessText:      req.SuccessText,
-		FailText:         req.FailText,
-		TimeLimit:        req.TimeLimit,
-		Threshold:        req.Threshold,
-	}
+	var eventCFG models.EventConfig
+	err := transaction.Where(
+		"event_id = ? AND specialization_id = ? AND test_id = ? AND creator_id = ?",
+		req.EventID,
+		req.SpecializationID,
+		req.TestID,
+		userID,
+	).First(&eventCFG).Error
+	created := false
 
-	if err := transaction.Create(&eventCFG).Error; err != nil {
+	if err == nil {
+		updates := models.EventConfig{
+			SuccessText: req.SuccessText,
+			FailText:    req.FailText,
+			TimeLimit:   req.TimeLimit,
+			Threshold:   req.Threshold,
+		}
+		if err := transaction.Model(&eventCFG).Updates(updates).Error; err != nil {
+			transaction.Rollback()
+			http.Error(w, "Ошибка обновления настройки: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if err := transaction.Where("config_id = ?", eventCFG.ConfigID).Delete(&models.ExtraThreshold{}).Error; err != nil {
+			transaction.Rollback()
+			http.Error(w, "Ошибка удаления старых порогов: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	} else if err == gorm.ErrRecordNotFound {
+		eventCFG = models.EventConfig{
+			EventID:          req.EventID,
+			SpecializationID: req.SpecializationID,
+			TestID:           req.TestID,
+			CreatorID:        userID,
+			SuccessText:      req.SuccessText,
+			FailText:         req.FailText,
+			TimeLimit:        req.TimeLimit,
+			TestLink:         uuid.New(),
+			Threshold:        req.Threshold,
+		}
+		if err := transaction.Create(&eventCFG).Error; err != nil {
+			transaction.Rollback()
+			http.Error(w, "Ошибка создания настройки: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+		created = true
+	} else {
 		transaction.Rollback()
-		http.Error(w, "Ошибка создания настройки: "+err.Error(), http.StatusInternalServerError)
+		http.Error(w, "Ошибка поиска настройки: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
 
 	for _, eThreshold := range req.ExtraThreshold {
 		extraThreshold := models.ExtraThreshold{
-			ConfigID:  eventCFG.ConfigID,
+			ConfigID:   eventCFG.ConfigID,
 			Threshold: eThreshold.Threshold,
 			Message:   eThreshold.Message,
 			TestID:    eThreshold.TestID,
@@ -106,18 +134,33 @@ func CreateConfig(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	w.WriteHeader(http.StatusCreated)
+	if eventCFG.TestLink == uuid.Nil {
+		eventCFG.TestLink = uuid.New()
+		if err := transaction.Model(&eventCFG).Update("test_link", eventCFG.TestLink).Error; err != nil {
+			transaction.Rollback()
+			http.Error(w, "Ошибка создания ссылки на тест: "+err.Error(), http.StatusInternalServerError)
+			return
+		}
+	}
+
+	if err := transaction.Commit().Error; err != nil {
+		http.Error(w, "Ошибка сохранения изменений", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	if created {
+		w.WriteHeader(http.StatusCreated)
+	} else {
+		w.WriteHeader(http.StatusOK)
+	}
+	json.NewEncoder(w).Encode(map[string]any{
+		"config_id": eventCFG.ConfigID,
+		"test_link": eventCFG.TestLink.String(),
+		"created":   created,
+	})
 }
 
-// @Summary Обновить настройку мероприятия
-// @Security ApiKeyAuth
-// @Tags manager
-// @Accept json
-// @Produce json
-// @Param id path int true "Config ID"
-// @Param test body EventCfgInfo true "EventCfg object"
-// @Success 200 {object} map[string]interface{}
-// @Router /api/manager/events/{id} [put]
 func UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	claims, ok := r.Context().Value(middleware.UserContextKey).(*auth.JWTClaims)
 	if !ok {
@@ -156,10 +199,9 @@ func UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	}
 
 	defer func() {
-		if r := recover(); r != nil {
+		if recovered := recover(); recovered != nil {
 			transaction.Rollback()
 			http.Error(w, "Ошибка сервера", http.StatusInternalServerError)
-			return
 		}
 	}()
 
@@ -194,7 +236,7 @@ func UpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 	for _, eThreshold := range req.ExtraThreshold {
 		extraThreshold := models.ExtraThreshold{
-			ConfigID:  existingConfig.ConfigID,
+			ConfigID:   existingConfig.ConfigID,
 			Threshold: eThreshold.Threshold,
 			Message:   eThreshold.Message,
 			TestID:    eThreshold.TestID,

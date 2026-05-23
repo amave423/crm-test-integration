@@ -1,4 +1,4 @@
-﻿import json
+import json
 from decimal import Decimal
 
 from django.conf import settings
@@ -414,6 +414,20 @@ class ProfileSerializer(ModelSerializer):
     def update(self, instance, validated_data):
         old_vk = instance.vk
         profile = super().update(instance, validated_data)
+        user = profile.user
+        user_update_fields = []
+        if "name" in validated_data and user.first_name != profile.name:
+            user.first_name = profile.name
+            user_update_fields.append("first_name")
+        if "surname" in validated_data and user.last_name != profile.surname:
+            user.last_name = profile.surname
+            user_update_fields.append("last_name")
+        if "email" in validated_data and profile.email and user.email != profile.email:
+            user.email = profile.email
+            user.username = profile.email
+            user_update_fields.extend(["email", "username"])
+        if user_update_fields:
+            user.save(update_fields=list(dict.fromkeys(user_update_fields)))
         reset_profile_vk_confirmation_if_changed(profile, old_vk)
         return profile
 

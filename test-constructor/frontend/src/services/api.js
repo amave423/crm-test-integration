@@ -30,6 +30,12 @@ api.interceptors.response.use(
 
 export const eventsAPI = {
     getEvents: () => api.get('/api/manager/events'),
+    getEventSpecializations: (eventId) =>
+        api.get(`/api/manager/events/${eventId}/specializations`),
+    getEventStatistics: (eventId) =>
+        api.get(`/api/manager/events/${eventId}/attempts`),
+    saveEventConfig: (config) =>
+        api.post('/api/manager/events', config),
 };
 
 export const authAPI = {

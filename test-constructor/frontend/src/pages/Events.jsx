@@ -15,22 +15,18 @@ export default function Events() {
     const [events, setEvents] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState(null);
-    const emptyEvents = [
-        { id: 1, name: "Мои мероприятие 1", start_date: "2000-01-01", end_date: "2050-01-01" },
-        { id: 2, name: "Мои мероприятие 2", start_date: "2000-01-01", end_date: "2050-01-01" },
-        { id: 3, name: "Мои мероприятие 3", start_date: "2000-01-01", end_date: "2050-01-01" },
-        { id: 4, name: "Мои мероприятие 4", start_date: "2000-01-01", end_date: "2050-01-01" },
-        { id: 5, name: "Мои мероприятие 5", start_date: "2000-01-01", end_date: "2050-01-01" },
-    ];
 
     useEffect(() => {
         const fetchEvents = async () => {
             try {
                 setLoading(true);
+                setError(null);
                 const response = await eventsAPI.getEvents();
-                setEvents(response.data || []);
+                setEvents(Array.isArray(response.data) ? response.data : []);
             } catch (err) {
                 console.error("Ошибка загрузки мероприятий:", err);
+                setError("Не удалось загрузить мероприятия из CRM.");
+                setEvents([]);
             } finally {
                 setLoading(false);
             }
@@ -42,51 +38,43 @@ export default function Events() {
     const formatDate = (dateString) => {
         if (!dateString) return "";
         const date = new Date(dateString);
-        return date.toLocaleDateString("ru-RU");
+        return Number.isNaN(date.getTime()) ? "" : date.toLocaleDateString("ru-RU");
     };
 
     return (
         <div className="tests-page">
-            <>
-                <LogoutButton />
-            </>
+            <LogoutButton />
             <div className="tests-wrapper">
                 <div className="tests">
-                    {/* Навигационные вкладки */}
                     <div className="tests-tabs">
-                        <button
-                            className="tab-btn"
-                            onClick={() => navigate("/tests")}
-                        >
+                        <button className="tab-btn" onClick={() => navigate("/tests")}>
                             <TaskIcon />
                             Тестовые задания
                         </button>
-                        <button
-                            className="tab-btn tab-btn-active"
-                            onClick={() => navigate("/events")}
-                        >
+                        <button className="tab-btn tab-btn-active" onClick={() => navigate("/events")}>
                             <EventIcon />
                             Мероприятия
                         </button>
-                        <button
-                            className="tab-btn"
-                            onClick={() => navigate("/candidates")}
-                        >
+                        <button className="tab-btn" onClick={() => navigate("/candidates")}>
                             <CandidatesIcon />
                             Кандидаты
                         </button>
                     </div>
 
-                    {/* Список мероприятий */}
                     <div className="events-container">
-                        {!loading && (events.length > 0 ? events : emptyEvents).map((event) => (
+                        {loading && <div className="tests-empty">Загрузка мероприятий...</div>}
+                        {!loading && error && <div className="tests-empty">{error}</div>}
+                        {!loading && !error && events.length === 0 && (
+                            <div className="tests-empty">В CRM пока нет мероприятий.</div>
+                        )}
+                        {!loading && !error && events.map((event) => (
                             <div key={event.id} className="event-card">
                                 <div className="event-info">
-                                    <h3 className="event-title">{event.name}</h3>
+                                    <h3 className="event-title">{event.name || event.title}</h3>
                                     <div className="event-dates">
-                                        <span>Начало: {formatDate(event.start_date)}</span>
+                                        <span>Начало: {formatDate(event.start_date || event.startDate)}</span>
                                         <span className="event-separator">|</span>
-                                        <span>Конец: {formatDate(event.end_date)}</span>
+                                        <span>Конец: {formatDate(event.end_date || event.endDate)}</span>
                                     </div>
                                 </div>
                                 <div className="event-actions">
@@ -97,8 +85,6 @@ export default function Events() {
                                     >
                                         <SettingsIcon />
                                     </button>
-
-
                                     <button
                                         className="event-btn statistics-btn"
                                         title="Статистика"
@@ -109,7 +95,6 @@ export default function Events() {
                                 </div>
                             </div>
                         ))}
-
                     </div>
                 </div>
             </div>

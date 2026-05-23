@@ -41,7 +41,6 @@ export default function StatisticsTest() {
                     }
 
                     setAttempts(attemptsArray);
-                    console.log("Полученные попытки:", attemptsArray);
                 } else {
                     console.warn("Не удалось загрузить статистику с сервера");
                     setAttempts([]);

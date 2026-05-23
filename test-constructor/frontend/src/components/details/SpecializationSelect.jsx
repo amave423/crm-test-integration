@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 
 export default function SpecializationSelect({ specializations, selected, onChange }) {
     const [isOpen, setIsOpen] = useState(false);
@@ -18,7 +18,6 @@ export default function SpecializationSelect({ specializations, selected, onChan
         document.addEventListener('mousedown', handleClickOutside);
         return () => document.removeEventListener('mousedown', handleClickOutside);
     }, []);
-
 
     const openAnimated = () => {
         if (!listRef.current) {
@@ -43,23 +42,16 @@ export default function SpecializationSelect({ specializations, selected, onChan
         listRef.current.style.transition = 'none';
         listRef.current.style.maxHeight = '0px';
         listRef.current.style.opacity = '0';
-
         setIsOpen(false);
 
-
         setTimeout(() => {
-            if (listRef.current) {
-                listRef.current.style.transition = '';
-            }
+            if (listRef.current) listRef.current.style.transition = '';
         }, 0);
     };
 
     const toggleOpen = () => {
-        if (isOpen) {
-            closeInstant();
-        } else {
-            openAnimated();
-        }
+        if (isOpen) closeInstant();
+        else openAnimated();
     };
 
     const handleSelect = (specId) => {
@@ -86,10 +78,7 @@ export default function SpecializationSelect({ specializations, selected, onChan
     }, []);
 
     return (
-        <div
-            className={`specialization-select ${isOpen ? 'open' : ''}`}
-            ref={containerRef}
-        >
+        <div className={`specialization-select ${isOpen ? 'open' : ''}`} ref={containerRef}>
             <button
                 type="button"
                 className="specialization-select-button"
@@ -101,11 +90,7 @@ export default function SpecializationSelect({ specializations, selected, onChan
                 <div className="select-arrow" aria-hidden="true" />
             </button>
 
-            <div
-                className="specialization-select-list"
-                ref={listRef}
-                role="listbox"
-            >
+            <div className="specialization-select-list" ref={listRef} role="listbox">
                 <div className="specialization-select-options">
                     {specializations.length === 0 ? (
                         <div className="specialization-option disabled">Нет специализаций</div>

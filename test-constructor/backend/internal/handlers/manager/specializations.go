@@ -18,6 +18,7 @@ type CRMEventResponse struct {
 type Specialization struct {
 	ID   int    `json:"id"`
 	Name string `json:"name"`
+	Title string `json:"title,omitempty"`
 }
 
 type EventSpecializationsResponse struct {
@@ -57,6 +58,11 @@ func GetEventSpecializations(w http.ResponseWriter, r *http.Request) {
 
 	response := EventSpecializationsResponse{
 		Specializations: eventData.Specializations,
+	}
+	for index := range response.Specializations {
+		if response.Specializations[index].Name == "" {
+			response.Specializations[index].Name = response.Specializations[index].Title
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

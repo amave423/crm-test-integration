@@ -352,11 +352,6 @@ export default function CreateTest() {
             }),
         };
 
-        console.log(
-            "Отправляемые данные на бэкенд:",
-            JSON.stringify(testData, null, 2)
-        );
-
         try {
             const token = localStorage.getItem("token");
             if (!token) {
@@ -369,10 +364,6 @@ export default function CreateTest() {
                 const testId =
                     editingTest.ID || editingTest.id || editingTest.Id;
                 if (testId) {
-                    console.log(
-                        `Удаляем старый тест с ID: ${testId} перед созданием нового`
-                    );
-
                     const deleteResponse = await fetch(
                         `${API_BASE_URL}/api/manager/tests/delete/${testId}`,
                         {
@@ -386,17 +377,12 @@ export default function CreateTest() {
 
                     const deleteResponseText =
                         await deleteResponse.text();
-                    console.log(
-                        "Ответ при удалении старого теста:",
-                        deleteResponseText
-                    );
 
                     if (!deleteResponse.ok) {
                         console.error(
-                            "Не удалось удалить старый тест. Создаем новый тест поверх существующего."
+                            "Не удалось удалить старый тест. Создаем новый тест поверх существующего.",
+                            deleteResponseText
                         );
-                    } else {
-                        console.log("Старый тест успешно удален");
                     }
                 }
             }
@@ -431,11 +417,6 @@ export default function CreateTest() {
                 );
                 throw new Error("Сервер вернул некорректный JSON");
             }
-
-            console.log("Успешный ответ от сервера:", result);
-
-
-            console.log("Успешный ответ от сервера:", result);
 
             const savedId = result?.id || result?.test_id || editingTest?.id;
             if (savedId) {

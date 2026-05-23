@@ -1,4 +1,4 @@
-﻿import { useCallback, useContext, useEffect, useMemo, useState } from "react";
+import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import client from "../../../api/client";
 import { createTestingSSOLink } from "../../../api/testing";
@@ -40,12 +40,17 @@ function buildTestingUrl(req: RequestType) {
 }
 
 function extractErrorMessage(error: unknown): string | undefined {
+  const translate = (message: string) =>
+    message.includes("Application for this event already exists")
+      ? "Вы уже отправляли заявку на это мероприятие"
+      : message;
+
   if (!error) return undefined;
-  if (typeof error === "string") return error;
+  if (typeof error === "string") return translate(error);
 
   if (Array.isArray(error)) {
     const firstText = error.find((item) => typeof item === "string" && item.trim());
-    return typeof firstText === "string" ? firstText : undefined;
+    return typeof firstText === "string" ? translate(firstText) : undefined;
   }
 
   if (typeof error !== "object") return undefined;
@@ -55,18 +60,18 @@ function extractErrorMessage(error: unknown): string | undefined {
 
   for (const key of preferredKeys) {
     const value = record[key];
-    if (typeof value === "string" && value.trim()) return value;
+    if (typeof value === "string" && value.trim()) return translate(value);
     if (Array.isArray(value)) {
       const firstText = value.find((item) => typeof item === "string" && item.trim());
-      if (typeof firstText === "string") return firstText;
+      if (typeof firstText === "string") return translate(firstText);
     }
   }
 
   for (const value of Object.values(record)) {
-    if (typeof value === "string" && value.trim()) return value;
+    if (typeof value === "string" && value.trim()) return translate(value);
     if (Array.isArray(value)) {
       const firstText = value.find((item) => typeof item === "string" && item.trim());
-      if (typeof firstText === "string") return firstText;
+      if (typeof firstText === "string") return translate(firstText);
     }
   }
 
@@ -215,6 +220,8 @@ export default function EventsPage() {
       await refreshRequests();
       openLink(link);
     } catch {
+      await refreshRequests();
+      closeTestingPrompt();
       showToast("error", "Не удалось запустить сценарий тестирования");
     }
   };

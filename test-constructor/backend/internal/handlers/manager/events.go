@@ -8,9 +8,13 @@ import (
 )
 
 type Event struct {
+	ID              uint             `json:"id"`
 	Name            string           `json:"name"`
+	Title           string           `json:"title,omitempty"`
 	StartDate       string           `json:"start_date"`
+	StartDateAlt    string           `json:"startDate,omitempty"`
 	EndDate         string           `json:"end_date"`
+	EndDateAlt      string           `json:"endDate,omitempty"`
 	Specializations []Specialization `json:"specializations"`
 }
 
@@ -59,6 +63,23 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
+	}
+
+	for index := range events {
+		if events[index].Name == "" {
+			events[index].Name = events[index].Title
+		}
+		if events[index].StartDate == "" {
+			events[index].StartDate = events[index].StartDateAlt
+		}
+		if events[index].EndDate == "" {
+			events[index].EndDate = events[index].EndDateAlt
+		}
+		for specIndex := range events[index].Specializations {
+			if events[index].Specializations[specIndex].Name == "" {
+				events[index].Specializations[specIndex].Name = events[index].Specializations[specIndex].Title
+			}
+		}
 	}
 
 	w.Header().Set("Content-Type", "application/json")

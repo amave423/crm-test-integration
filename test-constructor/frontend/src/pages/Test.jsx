@@ -8,16 +8,13 @@ import { useNavigate } from "react-router-dom";
 import EditIcon from "../assets/edit.svg?react";
 import ShareIcon from "../assets/share.svg?react";
 import StatisticsIcon from "../assets/statistics.svg?react";
-import CloseIcon from "../assets/close.svg?react";
 import DeleteIcon from "../assets/delete.svg?react";
 import CopyIcon from "../assets/copy_sub.svg?react";
 import { testsAPI } from "../services/api.js";
-import BackIcon from "../assets/back.svg?react";
 import TaskIcon from "../assets/task.svg?react";
 import EventIcon from "../assets/event.svg?react";
 import CandidatesIcon from "../assets/Candidates.svg?react";
 export default function Tests() {
-    const [statsTest, setStatsTest] = useState(null);
     const navigate = useNavigate();
 
 
@@ -40,7 +37,6 @@ export default function Tests() {
 
                 const response = await testsAPI.getTests();
                 const data = response.data;
-                console.log("Полученные тесты:", data);
 
                 let testsArray = [];
                 if (Array.isArray(data)) {
@@ -49,8 +45,6 @@ export default function Tests() {
                     testsArray = data.tests;
                 } else if (data.data && Array.isArray(data.data)) {
                     testsArray = data.data;
-                } else {
-                    console.error("Неизвестная структура ответа:", data);
                 }
 
                 const normalizedTests = testsArray.map(test => ({
@@ -59,7 +53,6 @@ export default function Tests() {
                 }));
 
                 setTests(normalizedTests);
-                console.log('ids:', normalizedTests.map(t => t.id));
 
             } catch (error) {
                 console.error("Ошибка:", error);
@@ -95,7 +88,6 @@ export default function Tests() {
     }, []);
 
     const editTest = (test) => {
-        console.log("Тест для редактирования:", test);
         navigate("/create", {
             state: { editing: true, test: test, deleteOnSave: true },
         });
@@ -114,7 +106,6 @@ export default function Tests() {
                 return;
             }
 
-            console.log("Удаление теста с ID:", id);
             await testsAPI.deleteTest(id);
 
             const updatedTests = tests.filter(test => {
@@ -158,13 +149,6 @@ export default function Tests() {
         setOpenMenuId(null);
     };
 
-
-
-
-
-    const closeTest = async (id) => {
-
-    };
 
     const viewStatistics = (test) => {
         navigate(`/statistics/${test.id}`);
@@ -343,13 +327,6 @@ export default function Tests() {
                     </div>
                 </div>
             )}
-            {statsTest && (
-                <StatisticsTest
-                    testId={statsTest.id}
-                    onClose={() => setStatsTest(null)}
-                />
-            )}
-
         </div>
     );
 }
