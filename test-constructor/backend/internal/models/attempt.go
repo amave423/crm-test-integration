@@ -16,6 +16,6 @@ type Attempt struct {
 	Passed        bool    `gorm:"default:false"`
 	// Relations
 	User        User        `gorm:"foreignKey:InternID;constraint:OnDelete:CASCADE;OnUpdate:CASCADE"`
-	EventConfig EventConfig `gorm:"foreignKey:ConfigID;constraint:OnDelete:CASCADE;"`
+	EventConfig EventConfig `gorm:"foreignKey:ConfigID;references:ConfigID;constraint:OnDelete:CASCADE;"`
 	Answers     []Answer
 }
