@@ -2,6 +2,29 @@ import { useEffect, useState } from "react";
 import { useNavigate, useSearchParams } from "react-router-dom";
 import { authAPI } from "../services/api.js";
 
+const exchangeRequests = new Map();
+
+function exchangeTicketOnce(ticket) {
+    if (!exchangeRequests.has(ticket)) {
+        const request = authAPI.ssoExchange(ticket).finally(() => {
+            setTimeout(() => exchangeRequests.delete(ticket), 30000);
+        });
+        exchangeRequests.set(ticket, request);
+    }
+    return exchangeRequests.get(ticket);
+}
+
+function getErrorMessage(error) {
+    const data = error?.response?.data;
+    if (typeof data === "string" && data.trim()) {
+        return data.trim();
+    }
+    if (data?.detail) {
+        return data.detail;
+    }
+    return "Не удалось выполнить вход через CRM.";
+}
+
 export default function SSO() {
     const [params] = useSearchParams();
     const navigate = useNavigate();
@@ -18,7 +41,7 @@ export default function SSO() {
             }
 
             try {
-                const response = await authAPI.ssoExchange(ticket);
+                const response = await exchangeTicketOnce(ticket);
                 const data = response.data;
 
                 localStorage.setItem("token", data.token);
@@ -54,7 +77,7 @@ export default function SSO() {
                 navigate(data.role === "intern" ? "/myTestStudent" : "/tests", { replace: true });
             } catch (error) {
                 console.error("SSO exchange failed", error);
-                setMessage("Не удалось выполнить вход через CRM.");
+                setMessage(getErrorMessage(error));
             }
         };
 

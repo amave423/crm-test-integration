@@ -1,271 +1,295 @@
 package auth
 
 import (
-    "bytes"
-    "encoding/json"
-    "fmt"
-    "io"
-    "net/http"
-    "strings"
-    "test-constructor/config"
-    "test-constructor/internal/database"
-    "test-constructor/internal/models"
-    "time"
+	"bytes"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"strings"
+	"test-constructor/config"
+	"test-constructor/internal/database"
+	"test-constructor/internal/models"
+	"time"
 
-    "github.com/google/uuid"
-    "gorm.io/gorm"
+	"github.com/google/uuid"
+	"gorm.io/gorm"
 )
 
 type SSOExchangeRequest struct {
-    Ticket string `json:"ticket"`
+	Ticket string `json:"ticket"`
 }
 
 type CRMSSOUser struct {
-    ID              uint   `json:"id"`
-    Email           string `json:"email"`
-    FirstName       string `json:"first_name"`
-    LastName        string `json:"last_name"`
-    DisplayName     string `json:"display_name"`
-    Role            string `json:"role"`
-    VK              string `json:"vk"`
-    VKConfirmed     bool   `json:"vk_confirmed"`
-    Course          *int   `json:"course"`
-    Specialty       string `json:"specialty"`
-    Specializations any    `json:"specializations"`
+	ID              uint   `json:"id"`
+	Email           string `json:"email"`
+	FirstName       string `json:"first_name"`
+	LastName        string `json:"last_name"`
+	DisplayName     string `json:"display_name"`
+	Role            string `json:"role"`
+	VK              string `json:"vk"`
+	VKConfirmed     bool   `json:"vk_confirmed"`
+	Course          *int   `json:"course"`
+	Specialty       string `json:"specialty"`
+	Specializations any    `json:"specializations"`
 }
 
 type CRMContextApplication struct {
-    ID int `json:"id"`
+	ID int `json:"id"`
 }
 
 type CRMContextEvent struct {
-    ID int `json:"id"`
+	ID int `json:"id"`
 }
 
 type CRMContextSpecialization struct {
-    ID int `json:"id"`
+	ID int `json:"id"`
 }
 
 type CRMTestingContext struct {
-    Application    CRMContextApplication     `json:"application"`
-    Event          *CRMContextEvent          `json:"event"`
-    Specialization *CRMContextSpecialization `json:"specialization"`
-    AvailableTests any                       `json:"availableTests"`
-    CurrentSession any                       `json:"currentSession"`
-    LatestResult   any                       `json:"latestResult"`
+	Application    CRMContextApplication     `json:"application"`
+	Event          *CRMContextEvent          `json:"event"`
+	Specialization *CRMContextSpecialization `json:"specialization"`
+	AvailableTests any                       `json:"availableTests"`
+	CurrentSession any                       `json:"currentSession"`
+	LatestResult   any                       `json:"latestResult"`
 }
 
 type CRMSSOExchangeResponse struct {
-    User        CRMSSOUser        `json:"user"`
-    Application *CRMTestingContext `json:"application"`
-    Next        string            `json:"next"`
+	User        CRMSSOUser         `json:"user"`
+	Application *CRMTestingContext `json:"application"`
+	Next        string             `json:"next"`
 }
 
 type SSOExchangeResponse struct {
-    Token       string             `json:"token"`
-    UserID      uint               `json:"user_id"`
-    Email       string             `json:"email"`
-    Name        string             `json:"name"`
-    Surname     string             `json:"surname"`
-    Role        string             `json:"role"`
-    Message     string             `json:"message"`
-    Application *CRMTestingContext `json:"application,omitempty"`
-    Next        string             `json:"next,omitempty"`
-    TestLink    string             `json:"test_link,omitempty"`
+	Token       string             `json:"token"`
+	UserID      uint               `json:"user_id"`
+	Email       string             `json:"email"`
+	Name        string             `json:"name"`
+	Surname     string             `json:"surname"`
+	Role        string             `json:"role"`
+	Message     string             `json:"message"`
+	Application *CRMTestingContext `json:"application,omitempty"`
+	Next        string             `json:"next,omitempty"`
+	TestLink    string             `json:"test_link,omitempty"`
+}
+
+type CRMExchangeError struct {
+	StatusCode int
+	Message    string
+}
+
+func (err *CRMExchangeError) Error() string {
+	return err.Message
 }
 
 func SSOExchange(w http.ResponseWriter, r *http.Request) {
-    var req SSOExchangeRequest
-    if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-        http.Error(w, "Invalid JSON", http.StatusBadRequest)
-        return
-    }
+	var req SSOExchangeRequest
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+		http.Error(w, "Invalid JSON", http.StatusBadRequest)
+		return
+	}
 
-    req.Ticket = strings.TrimSpace(req.Ticket)
-    if req.Ticket == "" {
-        http.Error(w, "Ticket is required", http.StatusBadRequest)
-        return
-    }
+	req.Ticket = strings.TrimSpace(req.Ticket)
+	if req.Ticket == "" {
+		http.Error(w, "Ticket is required", http.StatusBadRequest)
+		return
+	}
 
-    crmPayload, err := exchangeTicketWithCRM(req.Ticket)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusBadGateway)
-        return
-    }
+	crmPayload, err := exchangeTicketWithCRM(req.Ticket)
+	if err != nil {
+		log.Printf("CRM SSO exchange failed: %v", err)
+		statusCode := http.StatusBadGateway
+		var crmErr *CRMExchangeError
+		if errors.As(err, &crmErr) {
+			statusCode = crmErr.StatusCode
+		}
+		http.Error(w, err.Error(), statusCode)
+		return
+	}
 
-    user, err := upsertCRMUser(crmPayload.User)
-    if err != nil {
-        http.Error(w, err.Error(), http.StatusInternalServerError)
-        return
-    }
+	user, err := upsertCRMUser(crmPayload.User)
+	if err != nil {
+		http.Error(w, err.Error(), http.StatusInternalServerError)
+		return
+	}
 
-    token, err := GenerateJWT(user.ID, user.Email, user.Name, user.Surname, user.Role.Code)
-    if err != nil {
-        http.Error(w, "Failed to create token", http.StatusInternalServerError)
-        return
-    }
+	token, err := GenerateJWT(user.ID, user.Email, user.Name, user.Surname, user.Role.Code)
+	if err != nil {
+		http.Error(w, "Failed to create token", http.StatusInternalServerError)
+		return
+	}
 
-    testLink := ""
-    if crmPayload.Application != nil && user.Role.Code == "intern" {
-        testLink = findTestLinkForApplication(crmPayload.Application, user.ID)
-    }
+	testLink := ""
+	if crmPayload.Application != nil && user.Role.Code == "intern" {
+		testLink = findTestLinkForApplication(crmPayload.Application, user.ID)
+	}
 
-    w.Header().Set("Content-Type", "application/json; charset=utf-8")
-    json.NewEncoder(w).Encode(SSOExchangeResponse{
-        Token:       token,
-        UserID:      user.ID,
-        Email:       user.Email,
-        Name:        user.Name,
-        Surname:     user.Surname,
-        Role:        user.Role.Code,
-        Message:     "SSO login completed",
-        Application: crmPayload.Application,
-        Next:        crmPayload.Next,
-        TestLink:    testLink,
-    })
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(SSOExchangeResponse{
+		Token:       token,
+		UserID:      user.ID,
+		Email:       user.Email,
+		Name:        user.Name,
+		Surname:     user.Surname,
+		Role:        user.Role.Code,
+		Message:     "SSO login completed",
+		Application: crmPayload.Application,
+		Next:        crmPayload.Next,
+		TestLink:    testLink,
+	})
 }
 
 func exchangeTicketWithCRM(ticket string) (*CRMSSOExchangeResponse, error) {
-    cfg := config.Load()
-    if strings.TrimSpace(cfg.CRMService) == "" || strings.TrimSpace(cfg.CRMToken) == "" {
-        return nil, fmt.Errorf("CRM integration is not configured")
-    }
+	cfg := config.Load()
+	if strings.TrimSpace(cfg.CRMService) == "" || strings.TrimSpace(cfg.CRMToken) == "" {
+		return nil, fmt.Errorf("CRM integration is not configured")
+	}
 
-    body, _ := json.Marshal(map[string]string{"ticket": ticket})
-    url := strings.TrimRight(cfg.CRMService, "/") + "/api/users/integration/testing/sso-exchange/"
-    request, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
-    if err != nil {
-        return nil, err
-    }
-    request.Header.Set("Content-Type", "application/json")
-    request.Header.Set("Accept", "application/json")
-    request.Header.Set("X-Service-Token", cfg.CRMToken)
+	body, _ := json.Marshal(map[string]string{"ticket": ticket})
+	url := strings.TrimRight(cfg.CRMService, "/") + "/api/users/integration/testing/sso-exchange/"
+	request, err := http.NewRequest("POST", url, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
+	}
+	request.Header.Set("Content-Type", "application/json")
+	request.Header.Set("Accept", "application/json")
+	request.Header.Set("X-Service-Token", cfg.CRMToken)
 
-    client := &http.Client{Timeout: 15 * time.Second}
-    response, err := client.Do(request)
-    if err != nil {
-        return nil, fmt.Errorf("CRM SSO request failed: %w", err)
-    }
-    defer response.Body.Close()
+	client := &http.Client{Timeout: 15 * time.Second}
+	response, err := client.Do(request)
+	if err != nil {
+		return nil, fmt.Errorf("CRM SSO request failed: %w", err)
+	}
+	defer response.Body.Close()
 
-    responseBody, _ := io.ReadAll(response.Body)
-    if response.StatusCode < 200 || response.StatusCode >= 300 {
-        return nil, fmt.Errorf("CRM SSO exchange failed with status %d: %s", response.StatusCode, string(responseBody))
-    }
+	responseBody, _ := io.ReadAll(response.Body)
+	if response.StatusCode < 200 || response.StatusCode >= 300 {
+		statusCode := http.StatusBadGateway
+		if response.StatusCode == http.StatusBadRequest || response.StatusCode == http.StatusForbidden {
+			statusCode = response.StatusCode
+		}
+		return nil, &CRMExchangeError{
+			StatusCode: statusCode,
+			Message:    fmt.Sprintf("CRM SSO exchange failed with status %d: %s", response.StatusCode, string(responseBody)),
+		}
+	}
 
-    var payload CRMSSOExchangeResponse
-    if err := json.Unmarshal(responseBody, &payload); err != nil {
-        return nil, fmt.Errorf("CRM SSO response parse failed: %w", err)
-    }
-    return &payload, nil
+	var payload CRMSSOExchangeResponse
+	if err := json.Unmarshal(responseBody, &payload); err != nil {
+		return nil, fmt.Errorf("CRM SSO response parse failed: %w", err)
+	}
+	return &payload, nil
 }
 
 func upsertCRMUser(data CRMSSOUser) (*models.User, error) {
-    email := strings.ToLower(strings.TrimSpace(data.Email))
-    if email == "" {
-        return nil, fmt.Errorf("CRM user email is empty")
-    }
+	email := strings.ToLower(strings.TrimSpace(data.Email))
+	if email == "" {
+		return nil, fmt.Errorf("CRM user email is empty")
+	}
 
-    roleCode := mapCRMRole(data.Role)
-    var role models.Role
-    if err := database.DB.Where("code = ?", roleCode).First(&role).Error; err != nil {
-        return nil, fmt.Errorf("role %s was not found: %w", roleCode, err)
-    }
+	roleCode := mapCRMRole(data.Role)
+	var role models.Role
+	if err := database.DB.Where("code = ?", roleCode).First(&role).Error; err != nil {
+		return nil, fmt.Errorf("role %s was not found: %w", roleCode, err)
+	}
 
-    firstName := strings.TrimSpace(data.FirstName)
-    lastName := strings.TrimSpace(data.LastName)
-    if firstName == "" {
-        firstName = strings.TrimSpace(data.DisplayName)
-    }
-    if lastName == "" {
-        lastName = "-"
-    }
+	firstName := strings.TrimSpace(data.FirstName)
+	lastName := strings.TrimSpace(data.LastName)
+	if firstName == "" {
+		firstName = strings.TrimSpace(data.DisplayName)
+	}
+	if lastName == "" {
+		lastName = "-"
+	}
 
-    var user models.User
-    err := database.DB.Preload("Role").Where("LOWER(email) = ?", email).First(&user).Error
-    if err == nil {
-        user.Email = email
-        user.Name = firstName
-        user.Surname = lastName
-        user.RoleID = role.ID
-        user.Role = role
-        if err := database.DB.Save(&user).Error; err != nil {
-            return nil, err
-        }
-        return &user, nil
-    }
-    if err != nil && err != gorm.ErrRecordNotFound {
-        return nil, err
-    }
+	var user models.User
+	err := database.DB.Preload("Role").Where("LOWER(email) = ?", email).First(&user).Error
+	if err == nil {
+		user.Email = email
+		user.Name = firstName
+		user.Surname = lastName
+		user.RoleID = role.ID
+		user.Role = role
+		if err := database.DB.Save(&user).Error; err != nil {
+			return nil, err
+		}
+		return &user, nil
+	}
+	if err != nil && err != gorm.ErrRecordNotFound {
+		return nil, err
+	}
 
-    user = models.User{
-        Email:   email,
-        Name:    firstName,
-        Surname: lastName,
-        RoleID:  role.ID,
-        Role:    role,
-    }
-    if err := user.HashPassword(uuid.NewString()); err != nil {
-        return nil, err
-    }
-    if err := database.DB.Create(&user).Error; err != nil {
-        return nil, err
-    }
-    return &user, nil
+	user = models.User{
+		Email:   email,
+		Name:    firstName,
+		Surname: lastName,
+		RoleID:  role.ID,
+		Role:    role,
+	}
+	if err := user.HashPassword(uuid.NewString()); err != nil {
+		return nil, err
+	}
+	if err := database.DB.Create(&user).Error; err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
 func mapCRMRole(role string) string {
-    normalized := strings.ToLower(strings.TrimSpace(role))
-    if normalized == "organizer" || strings.Contains(normalized, "admin") || strings.Contains(normalized, "curator") {
-        return "manager"
-    }
-    return "intern"
+	normalized := strings.ToLower(strings.TrimSpace(role))
+	if normalized == "organizer" || strings.Contains(normalized, "admin") || strings.Contains(normalized, "curator") {
+		return "manager"
+	}
+	return "intern"
 }
 
 func findTestLinkForApplication(application *CRMTestingContext, internID uint) string {
-    if application == nil || application.Event == nil {
-        return ""
-    }
+	if application == nil || application.Event == nil {
+		return ""
+	}
 
-    eventID := uint(application.Event.ID)
-    applicationID := uint(application.Application.ID)
-    specializationID := uint(0)
-    if application.Specialization != nil {
-        specializationID = uint(application.Specialization.ID)
-    }
+	eventID := uint(application.Event.ID)
+	applicationID := uint(application.Application.ID)
+	specializationID := uint(0)
+	if application.Specialization != nil {
+		specializationID = uint(application.Specialization.ID)
+	}
 
-    var eventConfigs []models.EventConfig
-    query := database.DB.Where("event_id = ?", eventID).Order("config_id ASC")
-    if specializationID > 0 {
-        query = query.Where("specialization_id = ?", specializationID)
-    }
+	var eventConfigs []models.EventConfig
+	query := database.DB.Where("event_id = ?", eventID).Order("config_id ASC")
+	if specializationID > 0 {
+		query = query.Where("specialization_id = ?", specializationID)
+	}
 
-    if err := query.Find(&eventConfigs).Error; err != nil || len(eventConfigs) == 0 {
-        return ""
-    }
+	if err := query.Find(&eventConfigs).Error; err != nil || len(eventConfigs) == 0 {
+		return ""
+	}
 
-    configIDs := make([]uint, 0, len(eventConfigs))
-    for _, eventConfig := range eventConfigs {
-        configIDs = append(configIDs, eventConfig.ConfigID)
-    }
+	configIDs := make([]uint, 0, len(eventConfigs))
+	for _, eventConfig := range eventConfigs {
+		configIDs = append(configIDs, eventConfig.ConfigID)
+	}
 
-    var attempts []models.Attempt
-    if err := database.DB.
-        Where("intern_id = ? AND application_id = ? AND config_id IN ? AND end_time IS NOT NULL", internID, applicationID, configIDs).
-        Find(&attempts).Error; err != nil {
-        return eventConfigs[0].TestLink.String()
-    }
+	var attempts []models.Attempt
+	if err := database.DB.
+		Where("intern_id = ? AND application_id = ? AND config_id IN ? AND end_time IS NOT NULL", internID, applicationID, configIDs).
+		Find(&attempts).Error; err != nil {
+		return eventConfigs[0].TestLink.String()
+	}
 
-    finishedConfigIDs := make(map[uint]struct{}, len(attempts))
-    for _, attempt := range attempts {
-        finishedConfigIDs[attempt.ConfigID] = struct{}{}
-    }
+	finishedConfigIDs := make(map[uint]struct{}, len(attempts))
+	for _, attempt := range attempts {
+		finishedConfigIDs[attempt.ConfigID] = struct{}{}
+	}
 
-    for _, eventConfig := range eventConfigs {
-        if _, exists := finishedConfigIDs[eventConfig.ConfigID]; !exists {
-            return eventConfig.TestLink.String()
-        }
-    }
+	for _, eventConfig := range eventConfigs {
+		if _, exists := finishedConfigIDs[eventConfig.ConfigID]; !exists {
+			return eventConfig.TestLink.String()
+		}
+	}
 
-    return ""
+	return ""
 }
