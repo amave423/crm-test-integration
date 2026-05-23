@@ -1,14 +1,41 @@
 import "../styles/MyTestStudent.css";
 import LogoutButton from "../components/LogoutButton.jsx";
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import { testsAPI } from "../services/api.js";
 
+const statusLabels = {
+    passed: "Пройден",
+    failed: "Не пройден",
+    in_progress: "В процессе",
+};
+
+function formatDate(value) {
+    if (!value) return "-";
+    const date = new Date(value);
+    if (Number.isNaN(date.getTime())) return "-";
+    return date.toLocaleString("ru-RU", {
+        day: "2-digit",
+        month: "2-digit",
+        year: "numeric",
+        hour: "2-digit",
+        minute: "2-digit",
+    });
+}
+
+function normalizeAttempts(data) {
+    if (Array.isArray(data)) return data;
+    if (Array.isArray(data?.attempts)) return data.attempts;
+    if (Array.isArray(data?.tests)) return data.tests;
+    if (Array.isArray(data?.data)) return data.data;
+    return [];
+}
+
 export default function MyTestStudent() {
     const navigate = useNavigate();
-    const [tests, setTests] = useState([]);
-    const [openMenuId, setOpenMenuId] = useState(null);
-    const menuRefs = useRef({});
+    const [attempts, setAttempts] = useState([]);
+    const [isLoading, setIsLoading] = useState(true);
+    const [errorMessage, setErrorMessage] = useState("");
 
     useEffect(() => {
         const fetchAttempts = async () => {
@@ -20,89 +47,82 @@ export default function MyTestStudent() {
                 }
 
                 const response = await testsAPI.getAttempts();
-                const data = response.data;
-
-                let testsArray = [];
-                if (Array.isArray(data)) {
-                    testsArray = data;
-                } else if (data.tests && Array.isArray(data.tests)) {
-                    testsArray = data.tests;
-                } else if (data.data && Array.isArray(data.data)) {
-                    testsArray = data.data;
-                }
-
-                setTests(testsArray);
+                setAttempts(normalizeAttempts(response.data));
+                setErrorMessage("");
             } catch (error) {
                 console.error("Ошибка при загрузке попыток:", error);
-                setTests([]);
+                setAttempts([]);
+                setErrorMessage("Не удалось загрузить список тестов.");
+            } finally {
+                setIsLoading(false);
             }
         };
 
         fetchAttempts();
     }, [navigate]);
 
-
-    const toggleMenu = (id, e) => {
-        if (e) e.stopPropagation();
-        setOpenMenuId(openMenuId === id ? null : id);
-    };
-
-    useEffect(() => {
-        const handleClickOutside = (e) => {
-            let clickedInsideMenu = false;
-            Object.values(menuRefs.current).forEach((ref) => {
-                if (ref && ref.contains(e.target)) {
-                    clickedInsideMenu = true;
-                }
-            });
-            if (!clickedInsideMenu) {
-                setOpenMenuId(null);
-            }
-        };
-
-        document.addEventListener("mousedown", handleClickOutside);
-        return () =>
-            document.removeEventListener("mousedown", handleClickOutside);
-    }, []);
+    const completedCount = useMemo(
+        () => attempts.filter((attempt) => attempt.status === "passed" || attempt.status === "failed").length,
+        [attempts]
+    );
 
     return (
         <div className="tests-page">
-            <div
-                className="test-page"
-                style={{ position: "absolute", left: "1430px", top: "0px" }}
-            >
+            <div className="test-page" style={{ position: "absolute", left: "1430px", top: "0px" }}>
                 <LogoutButton />
             </div>
             <div className="create-wrapper2">
                 <div className="test">
-                    <h2>Мои тесты</h2>
+                    <div className="mytests-header">
+                        <div>
+                            <h2>Мои тесты</h2>
+                            <p className="mytests-subtitle">
+                                Завершено: {completedCount} из {attempts.length}
+                            </p>
+                        </div>
+                    </div>
                     <div className="tests-line"></div>
 
-                    {tests.length === 0 ? (
-                        <p className="mytests-empty">
-                            Вы ещё не проходили ни одного теста.
-                        </p>
+                    {isLoading ? (
+                        <p className="mytests-empty">Загружаем тесты...</p>
+                    ) : errorMessage ? (
+                        <p className="mytests-empty">{errorMessage}</p>
+                    ) : attempts.length === 0 ? (
+                        <p className="mytests-empty">Вы ещё не проходили ни одного теста.</p>
                     ) : (
                         <div className="mytests-list">
-                            {tests.map((t, index) => (
-                                <div
-                                    key={`${t.id}-${index}`}
-                                    className="mytests-card"
-                                >
-                                    <h3 className="mytests-card-title">
-                                        {t.title}
-                                    </h3>
+                            {attempts.map((attempt, index) => {
+                                const status = attempt.status || (attempt.passed ? "passed" : "failed");
+                                const statusClass = `mytests-status mytests-status-${status}`;
+                                return (
+                                    <div key={`${attempt.attempt_id || attempt.id}-${index}`} className="mytests-card">
+                                        <div className="mytests-card-header">
+                                            <div>
+                                                <h3 className="mytests-card-title">
+                                                    {attempt.title || attempt.test_title || "Тест"}
+                                                </h3>
+                                                <p className="mytests-card-meta">
+                                                    Заявка #{attempt.application_id || "-"} · Попытка #{attempt.attempt_id || attempt.id}
+                                                </p>
+                                            </div>
+                                            <span className={statusClass}>{statusLabels[status] || "Статус неизвестен"}</span>
+                                        </div>
 
-                                    <p className="mytests-card-message">
-                                        {t.message}
-                                    </p>
-                                </div>
-                            ))}
+                                        <p className="mytests-card-message">
+                                            {attempt.message || attempt.result_text || "Результат ещё не сформирован"}
+                                        </p>
+                                        <div className="mytests-card-footer">
+                                            <span>Баллы: {attempt.score ?? 0}</span>
+                                            <span>Начало: {formatDate(attempt.started_at)}</span>
+                                            <span>Завершение: {formatDate(attempt.finished_at)}</span>
+                                        </div>
+                                    </div>
+                                );
+                            })}
                         </div>
                     )}
                 </div>
             </div>
         </div>
     );
-
 }

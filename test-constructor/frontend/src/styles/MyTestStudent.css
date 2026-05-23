@@ -34,6 +34,20 @@
     transform: translateX(34px);
 }
 
+.mytests-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 16px;
+}
+
+.mytests-subtitle {
+    margin: 14px 0 0 34px;
+    color: #f0e8d5;
+    opacity: 0.85;
+    font-size: 16px;
+}
+
 .tests-line {
     height: 1px;
     background: #F4EDD9;
@@ -67,6 +81,7 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
+    gap: 16px;
 }
 
 
@@ -75,6 +90,13 @@
     font-size: 18px;
     font-weight: 700;
     color: #2f4156;
+}
+
+.mytests-card-meta {
+    margin: 4px 0 0;
+    color: #2f4156;
+    font-size: 13px;
+    opacity: 0.7;
 }
 
 
@@ -95,6 +117,11 @@
     color: #7a1f1f;
 }
 
+.mytests-status-in_progress {
+    background: #fff1bf;
+    color: #6a4b00;
+}
+
 
 .mytests-card-message {
     margin: 2px 0 0;
@@ -108,4 +135,19 @@
     font-size: 13px;
     color: #2f4156;
     opacity: 0.8;
+}
+
+.mytests-card-footer {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 6px;
+}
+
+.mytests-card-footer span {
+    padding: 4px 8px;
+    border-radius: 999px;
+    background: rgba(47, 65, 86, 0.08);
+    color: #2f4156;
+    font-size: 13px;
 }
