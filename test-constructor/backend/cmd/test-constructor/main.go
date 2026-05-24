@@ -45,6 +45,8 @@ func main() {
     m.Use(middleware.ManagerMiddleware)
     m.HandleFunc("/tests", manager.GetTests).Methods("GET")
     m.HandleFunc("/tests", manager.CreateTest).Methods("POST")
+    m.HandleFunc("/tests/{id}", manager.GetTest).Methods("GET")
+    m.HandleFunc("/tests/{id}", manager.UpdateTest).Methods("PUT")
     m.HandleFunc("/tests/delete/{id}", manager.DeleteTest).Methods("POST")
     m.HandleFunc("/tests/{id}/attempts", manager.GetTestAttempts).Methods("GET")
     m.HandleFunc("/events", manager.GetEvents).Methods("GET")

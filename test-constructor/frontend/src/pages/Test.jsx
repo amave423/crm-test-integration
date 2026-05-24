@@ -98,27 +98,14 @@ export default function Tests() {
         console.log("Тест для редактирования:", test);
 
         try {
-
-            let fullTest = test;
-
-            const savedTestsRaw = localStorage.getItem("savedTestsExtended");
-            if (savedTestsRaw) {
-                try {
-                    const savedTests = JSON.parse(savedTestsRaw);
-                    const found = savedTests.find(t => t.id === test.id);
-                    if (found) {
-                        fullTest = found;
-                        console.log("Найден сохранённый тест с деталями:", fullTest);
-                    }
-                } catch (e) {
-                    console.error("Ошибка при чтении localStorage:", e);
-                }
-            }
+            const testId = test.test_id || test.id;
+            const response = await testsAPI.getTest(testId);
+            const fullTest = response.data?.test || response.data;
 
             localStorage.setItem("editingTest", JSON.stringify(fullTest));
 
             navigate("/create", {
-                state: { editing: true, test: fullTest, deleteOnSave: true },
+                state: { editing: true, test: fullTest, deleteOnSave: false },
             });
             setOpenMenuId(null);
         } catch (error) {
@@ -126,7 +113,6 @@ export default function Tests() {
             alert("Ошибка при загрузке теста для редактирования");
         }
     };
-
 
 
     const deleteTest = async (id) => {
@@ -172,11 +158,7 @@ export default function Tests() {
     const shareTest = async (test) => {
         try {
             const testLink = test.test_link;
-
-            const key = `shared_test_${testLink}`;
-            localStorage.setItem(key, JSON.stringify(test));
-
-            const link = `http://localhost:5173/test/${testLink}`;
+            const link = `${window.location.origin}/test/${testLink}`;
             setShareLink(link);
             setShareModalOpen(true);
         } catch (error) {

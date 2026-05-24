@@ -144,46 +144,11 @@ export default function PassingTestStudent() {
     useEffect(() => {
         if (startedRef.current) return;
         startedRef.current = true;
-
-        const loadLocalTest = () => {
-            const saved = localStorage.getItem(`shared_test_${test_link}`);
-            if (!saved) return false;
-
-            const parsed = JSON.parse(saved);
-            const localTest = {
-                ...parsed,
-                questions: (parsed.questions || []).map((q, idx) => {
-                    if (q.type === "matching") {
-                        return { ...q, rows: q.rows || q.matching || [] };
-                    }
-                    if (q.type === "ordering") {
-                        return { ...q, items: q.items || [] };
-                    }
-                    return { ...q, id: q.id ?? idx };
-                }),
-            };
-
-            const initialAnswers = buildInitialAnswers(localTest);
-            Object.entries(initialAnswers).forEach(([key, value]) => {
-                initialAnswers[key] = shuffleArray(value);
-            });
-
-            setAnswers(initialAnswers);
-            setTest(localTest);
-            setStartTime(Date.now());
-            if (typeof parsed.completetime === "number") {
-                setTimeLeft(parsed.completetime);
-            }
-            return true;
-        };
-
         const start = async () => {
             try {
                 const token = localStorage.getItem("token");
                 if (!token) {
-                    if (!loadLocalTest()) {
-                        setErrorMessage("Тест не найден или ссылка недействительна.");
-                    }
+                    setErrorMessage("Требуется авторизация для прохождения теста.");
                     return;
                 }
 
@@ -199,10 +164,8 @@ export default function PassingTestStudent() {
                 }
             } catch (error) {
                 console.error("Failed to start test", error);
-                if (!loadLocalTest()) {
-                    const detail = error?.response?.data || "Не удалось загрузить тест.";
-                    setErrorMessage(typeof detail === "string" ? detail : "Не удалось загрузить тест.");
-                }
+                const detail = error?.response?.data || "Не удалось загрузить тест.";
+                setErrorMessage(typeof detail === "string" ? detail : "Не удалось загрузить тест.");
             } finally {
                 setLoading(false);
             }

@@ -1,4 +1,4 @@
-﻿import logging
+import logging
 
 from django.conf import settings
 from django.core import signing
@@ -312,6 +312,8 @@ def send_application_vk_message(
 ) -> int:
     vk_user_id = resolve_application_vk_user_id(application)
 
+    if attachments:
+        return send_vk_message(peer_id=vk_user_id, message=message, keyboard=keyboard, attachments=attachments)
     return send_vk_message(user_id=vk_user_id, message=message, keyboard=keyboard, attachments=attachments)
 
 
@@ -319,13 +321,16 @@ def upload_application_vk_documents(application: Application, documents) -> list
     vk_user_id = resolve_application_vk_user_id(application)
     attachments: list[str] = []
     for document in documents:
-        attachments.append(
-            upload_vk_document(
-                user_id=vk_user_id,
-                file_name=document.file_name,
-                content=bytes(document.content),
-            )
+        attachment = upload_vk_document(
+            peer_id=vk_user_id,
+            file_name=document.file_name,
+            content=bytes(document.content),
         )
+        print(
+            f"VK document uploaded: application_id={application.id} "
+            f"vk_user_id={vk_user_id} file_name={document.file_name} attachment={attachment}"
+        )
+        attachments.append(attachment)
     return attachments
 
 

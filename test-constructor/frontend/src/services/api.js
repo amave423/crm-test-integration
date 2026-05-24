@@ -66,6 +66,12 @@ export const testsAPI = {
     getTests: () =>
         api.get('/api/manager/tests'),
 
+    getTest: (testId) =>
+        api.get(`/api/manager/tests/${testId}`),
+
+    updateTest: (testId, testData) =>
+        api.put(`/api/manager/tests/${testId}`, testData),
+
     deleteTest: (testId) =>
         api.post(`/api/manager/tests/delete/${testId}`),
 

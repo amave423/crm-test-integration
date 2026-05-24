@@ -13,6 +13,7 @@ import Table from "../../../components/Table/Table";
 import { useToast } from "../../../components/Toast/ToastProvider";
 import { buildMockRequestTransitionUrl, REQUEST_STATUS } from "../../../constants/requestProgress";
 import { AuthContext } from "../../../context/AuthContext";
+import { useNotifications } from "../../../context/NotificationsContext";
 import { useSearchSubmitFeedback } from "../../../hooks/useSearchSubmitFeedback";
 import type { Event } from "../../../types/event";
 import type { Request as RequestType } from "../../../types/request";
@@ -81,6 +82,7 @@ export default function EventsPage() {
   const navigate = useNavigate();
   const { user } = useContext(AuthContext);
   const { showToast } = useToast();
+  const { addNotification } = useNotifications();
   const isStudent = user?.role === "student";
 
   const [wizardOpen, setWizardOpen] = useState(false);
@@ -195,6 +197,14 @@ export default function EventsPage() {
   };
 
   const startDirectScenario = () => {
+    if (pendingRequest?.id) {
+      addNotification({
+        title: "Тестирование",
+        message: "Ссылка на прохождение тестирования добавлена в центр уведомлений.",
+        link: `/testing?applicationId=${Number(pendingRequest.id)}`,
+      });
+      showToast("info", "Ссылка на тестирование добавлена в центр уведомлений.");
+    }
     closeTestingPrompt();
   };
 

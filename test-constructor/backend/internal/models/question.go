@@ -34,7 +34,7 @@ func ParseQType(s string) (QType, error) {
 	switch qType {
 	case SingleChoice, MultipleChoice, TextInput, Matching, CorrectOrder:
 	default:
-		return qType, errors.New("Неверный тип вопроса: " + s)
+		return qType, errors.New("Invalid question type: " + s)
 	}
 
 	return qType, nil

@@ -1,4 +1,4 @@
-﻿import hashlib
+import hashlib
 import json
 from dataclasses import dataclass
 from copy import deepcopy
@@ -433,6 +433,7 @@ def run_robot_action(
                 log_message = "Файлы для VK-робота не выбраны."
             else:
                 vk_attachments = upload_application_vk_documents(event.application, documents)
+                print(f"VK file robot attachments: application_id={event.application.id} attachments={vk_attachments}")
                 send_application_vk_message(
                     event.application,
                     message or "Вам отправлены файлы по заявке.",

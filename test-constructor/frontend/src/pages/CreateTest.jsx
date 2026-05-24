@@ -116,67 +116,71 @@ export default function CreateTest() {
 
     const [questions, setQuestions] = useState(() => {
         if (isEditing && editingTest && Array.isArray(editingTest.questions)) {
+            const typeMap = {
+                single_choice: "singleChoice",
+                multiple_choice: "multipleChoice",
+                text_input: "shortText",
+                correct_order: "ordering",
+            };
+
             return editingTest.questions.map((q, idx) => {
+                const apiOptions = q.options || {};
+                const uiType = typeMap[q.type] || q.type || "shortText";
+                const normalizeChoices = (choices = []) =>
+                    choices.map((item) => ({
+                        text: item.text || "",
+                        isCorrect: Boolean(item.isCorrect ?? item.is_true),
+                        points: item.points || 0,
+                    }));
+
                 const base = {
-                    id: `q-${idx}-${Date.now()}`,
-                    order: idx + 1,
-                    type: q.type || "shortText",
+                    id: `q-${q.question_id || q.id || idx}-${Date.now()}`,
+                    order: q.order || q.order_number || idx + 1,
+                    type: uiType,
                     text: q.text || "",
                     maxScore: q.maxScore || q.points || 15,
                 };
 
-                switch (base.type) {
+                switch (uiType) {
                     case "shortText":
                         return {
                             ...base,
-                            correctAnswers:
-                                q.correctAnswers ||
-                                q.correct_input ||
-                                [""],
+                            correctAnswers: q.correctAnswers || q.correct_input || apiOptions.correct_input || [""],
                             caseSensitive:
                                 q.caseSensitive !== undefined
                                     ? q.caseSensitive
-                                    : q.case_sensitive || false,
+                                    : Boolean(q.case_sensitive ?? apiOptions.case_sensitive),
                         };
                     case "singleChoice":
                         return {
                             ...base,
-                            options:
-                                q.options ||
-                                q.choice ||
-                                [{ text: "", isCorrect: false }],
+                            options: normalizeChoices(q.options || q.choice || apiOptions.choice || [{ text: "", isCorrect: false }]),
                         };
                     case "multipleChoice":
                         return {
                             ...base,
-                            options:
-                                q.options ||
-                                q.choice ||
-                                [{ text: "", isCorrect: false }],
+                            options: normalizeChoices(q.options || q.choice || apiOptions.choice || [{ text: "", isCorrect: false }]),
                             scoringType: q.scoringType || "allOrNothing",
                         };
-                    case "matching":
+                    case "matching": {
+                        const rows = q.rows || q.matching || apiOptions.matching || [];
                         return {
                             ...base,
-                            rows:
-                                q.rows ||
-                                q.matching ||
-                                [{ option: "", answer: "" }],
+                            rows: rows.length
+                                ? rows.map((row) => ({
+                                      option: row.option || row.left || row.leftColumn || "",
+                                      answer: row.answer || row.right || row.rightColumn || "",
+                                  }))
+                                : [{ option: "", answer: "" }],
                         };
+                    }
                     case "ordering":
                         return {
                             ...base,
-                            items:
-                                q.items ||
-                                q.sequence ||
-                                [{ text: "" }],
+                            items: q.items || q.sequence || (apiOptions.sequence || []).map((item) => item.text || item) || [""],
                         };
                     default:
-                        return {
-                            ...base,
-                            correctAnswers: [""],
-                            caseSensitive: false,
-                        };
+                        return base;
                 }
             });
         }
@@ -336,9 +340,9 @@ export default function CreateTest() {
                         options = {
                             sequence:
                                 q.items?.map((item, itemIdx) => ({
-                                    text: item.text,
+                                    text: typeof item === "string" ? item : item.text,
                                     order: itemIdx + 1,
-                                    points: item.points || 0,
+                                    points: typeof item === "string" ? 0 : item.points || 0,
                                 })) || [],
                         };
                         break;
@@ -369,63 +373,13 @@ export default function CreateTest() {
                 return;
             }
 
-            if (isEditing && deleteOnSave && editingTest?.id) {
-                const testId =
-                    editingTest.ID || editingTest.id || editingTest.Id;
-                if (testId) {
-                    console.log(
-                        `Удаляем старый тест с ID: ${testId} перед созданием нового`
-                    );
-
-                    try {
-                        await testsAPI.deleteTest(testId);
-                        console.log("Старый тест успешно удален");
-                    } catch (deleteError) {
-                        console.error(
-                            "Не удалось удалить старый тест. Создаем новый тест поверх существующего.",
-                            deleteError
-                        );
-                    }
-                }
-            }
-
-            const response = await testsAPI.createTest(testData);
+            const testId = editingTest?.ID || editingTest?.id || editingTest?.Id;
+            const response = isEditing && testId
+                ? await testsAPI.updateTest(testId, testData)
+                : await testsAPI.createTest(testData);
             const result = response.data;
 
             console.log("Успешный ответ от сервера:", result);
-
-            const savedId = result?.id || result?.test_id || editingTest?.id;
-            if (savedId) {
-                try {
-                    const extendedTest = {
-                        ...(editingTest || {}),
-                        id: savedId,
-                        title: testData.title,
-                        description: testData.description,
-                        is_percentage: testData.is_percentage,
-                        threshold: testData.threshold,
-                        success_text: testData.success_text,
-                        fail_text: testData.fail_text,
-                        complete_time: testData.complete_time,
-                        questions,
-                    };
-
-                    const raw = localStorage.getItem("savedTestsExtended");
-                    const list = raw ? JSON.parse(raw) : [];
-
-                    const filtered = Array.isArray(list)
-                        ? list.filter((t) => t.id !== savedId)
-                        : [];
-
-                    filtered.push(extendedTest);
-                    localStorage.setItem(
-                        "savedTestsExtended",
-                        JSON.stringify(filtered)
-                    );
-                } catch (e) {
-                    console.error("Не удалось сохранить локальный тест с вопросами", e);
-                }
-            }
 
             localStorage.removeItem("editingTest");
 

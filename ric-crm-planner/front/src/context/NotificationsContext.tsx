@@ -87,9 +87,20 @@ export function NotificationsProvider({ children }: { children: ReactNode }) {
       if (!user) return;
 
       if (shouldUseBackendNotifications(Boolean(user))) {
+        const optimistic: NotificationItem = {
+          id: `pending_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`,
+          userId: input.userId ?? user.id,
+          title: input.title,
+          message: input.message,
+          link: input.link,
+          createdAt: new Date().toISOString(),
+          read: false,
+        };
+
+        setItems((prev) => [optimistic, ...prev]);
         void createBackendNotification(input)
           .then((created) => {
-            setItems((prev) => [created, ...prev.filter((item) => item.id !== created.id)]);
+            setItems((prev) => [created, ...prev.filter((item) => item.id !== optimistic.id && item.id !== created.id)]);
           })
           .catch(() => {
           });
