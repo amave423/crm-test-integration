@@ -574,3 +574,94 @@
     justify-content: space-between;
   }
 }
+
+/* compact backlog grid refinements */
+.backlog-sheet-row {
+  grid-template-columns: minmax(240px, 0.28fr) minmax(0, 0.72fr);
+}
+
+.backlog-subtask-row {
+  grid-template-columns: minmax(230px, 0.95fr) minmax(0, 1.35fr) minmax(286px, max-content);
+  align-items: center;
+}
+
+.backlog-subtask-meta {
+  grid-template-columns: minmax(150px, 0.72fr) minmax(150px, 0.82fr) minmax(106px, 0.48fr) minmax(76px, 0.34fr);
+  align-items: center;
+}
+
+.backlog-subtask-meta span {
+  min-height: 36px;
+  padding: 5px 8px;
+  font-size: 13px;
+  line-height: 1.2;
+}
+
+.backlog-subtask-create-meta {
+  grid-template-columns: minmax(190px, 0.9fr) minmax(218px, 1fr) minmax(106px, max-content) minmax(112px, max-content);
+}
+
+.backlog-subtask-row--create {
+  grid-template-columns: minmax(240px, 0.42fr) minmax(0, 0.58fr);
+}
+
+.backlog-sprint-toggle {
+  width: 106px;
+  min-width: 0;
+  max-width: 106px;
+}
+
+.backlog-sprint-toggle span {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.backlog-subtask-actions {
+  min-width: 0;
+}
+
+.backlog-subtask-create-date .app-date-picker.ant-picker--range,
+.backlog-subtask-edit .app-date-picker.ant-picker--range {
+  grid-template-columns: minmax(0, 1fr) 18px minmax(0, 1fr) 16px;
+  column-gap: 4px;
+  padding-left: 9px;
+  padding-right: 9px;
+}
+
+@media (max-width: 1720px) and (min-width: 1181px) {
+  .backlog-sheet-row {
+    grid-template-columns: minmax(220px, 0.25fr) minmax(0, 0.75fr);
+  }
+
+  .backlog-subtask-row {
+    grid-template-columns: minmax(200px, 0.82fr) minmax(0, 1.25fr) minmax(270px, max-content);
+  }
+
+  .backlog-subtask-meta {
+    grid-template-columns: minmax(140px, 0.7fr) minmax(140px, 0.78fr) minmax(100px, 0.45fr) minmax(72px, 0.32fr);
+  }
+
+  .backlog-subtask-create-meta {
+    grid-template-columns: minmax(175px, 0.82fr) minmax(206px, 0.96fr) minmax(100px, max-content) minmax(108px, max-content);
+  }
+}
+
+@media (max-width: 1180px) {
+  .backlog-sheet-row,
+  .backlog-subtask-row,
+  .backlog-subtask-row--create,
+  .backlog-subtask-edit,
+  .backlog-subtask-create-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .backlog-subtask-actions {
+    justify-content: flex-start;
+  }
+
+  .backlog-sprint-toggle {
+    width: 100%;
+    max-width: none;
+  }
+}

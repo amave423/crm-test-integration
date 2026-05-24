@@ -1,4 +1,4 @@
-import type { Dispatch, SetStateAction } from "react";
+﻿import type { Dispatch, SetStateAction } from "react";
 import { DateRangeField } from "../../../../components/UI/DateField";
 import type { PlannerParentTask, PlannerSubtask } from "../../../../types/planner";
 import type { ParentEditDraft, SubtaskEditDraft } from "../../planner.types";
@@ -56,9 +56,15 @@ type BacklogTabProps = {
   onDeleteSubtask: (subtaskId: number) => void;
 };
 
+const formatAssigneeName = (label: string) => {
+  const namePart = label.split(" - ")[0]?.trim() || label.trim();
+  const parts = namePart.split(/\s+/).filter(Boolean);
+  return parts.length > 2 ? parts.slice(0, 2).join(" ") : namePart;
+};
+
 const getSubtaskAssignee = (subtask: PlannerSubtask, displayAssigneeLabel: (id: number) => string) => {
-  if (subtask.assigneeId) return displayAssigneeLabel(subtask.assigneeId);
-  return subtask.role || "Не назначен";
+  if (subtask.assigneeId) return formatAssigneeName(displayAssigneeLabel(subtask.assigneeId));
+  return subtask.role || "\u041d\u0435 \u043d\u0430\u0437\u043d\u0430\u0447\u0435\u043d";
 };
 
 export default function BacklogTab({
@@ -130,7 +136,7 @@ export default function BacklogTab({
         }
         options={[
           { value: "", label: "Без ответственного" },
-          ...getTeamMemberIds(parent.teamId).map((id) => ({ value: String(id), label: displayAssigneeLabel(Number(id)) })),
+          ...getTeamMemberIds(parent.teamId).map((id) => ({ value: String(id), label: formatAssigneeName(displayAssigneeLabel(Number(id))) })),
         ]}
       />
       <DateRangeField
@@ -154,7 +160,7 @@ export default function BacklogTab({
         onChange={(value) => setEditingSubtaskDraft((prev) => (prev ? { ...prev, assigneeId: Number(value) } : prev))}
         options={[
           { value: "", label: "Ответственный", disabled: true },
-          ...getTeamMemberIds(subtask.teamId).map((id) => ({ value: String(id), label: displayAssigneeLabel(Number(id)) })),
+          ...getTeamMemberIds(subtask.teamId).map((id) => ({ value: String(id), label: formatAssigneeName(displayAssigneeLabel(Number(id))) })),
         ]}
       />
       <DateRangeField
@@ -186,7 +192,7 @@ export default function BacklogTab({
           disabled={selectedTeamMembers.length === 0}
           options={[
             { value: "", label: "Ответственный", disabled: true },
-            ...selectedTeamMembers.map((id) => ({ value: String(id), label: displayAssigneeLabel(Number(id)) })),
+            ...selectedTeamMembers.map((id) => ({ value: String(id), label: formatAssigneeName(displayAssigneeLabel(Number(id))) })),
           ]}
         />
         <DateRangeField
@@ -245,7 +251,7 @@ export default function BacklogTab({
                         <span>Старт: {parent.startDate || "-"}</span>
                         <span>Финиш: {parent.endDate || "-"}</span>
                         <span>В спринте: {parentSprintCount}/{parentSubtasks.length}</span>
-                        <span>Ответственный: {parent.assigneeId ? displayAssigneeLabel(parent.assigneeId) : "Не назначен"}</span>
+                        <span>Ответственный: {parent.assigneeId ? formatAssigneeName(displayAssigneeLabel(parent.assigneeId)) : "Не назначен"}</span>
                       </div>
                     </>
                   )}
@@ -335,7 +341,7 @@ export default function BacklogTab({
                 disabled={activeTeamMembers.length === 0}
                 options={[
                   { value: "", label: "Без ответственного" },
-                  ...activeTeamMembers.map((id) => ({ value: String(id), label: displayAssigneeLabel(Number(id)) })),
+                  ...activeTeamMembers.map((id) => ({ value: String(id), label: formatAssigneeName(displayAssigneeLabel(Number(id))) })),
                 ]}
               />
               <DateRangeField
@@ -360,3 +366,4 @@ export default function BacklogTab({
     </div>
   );
 }
+
