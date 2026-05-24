@@ -1,6 +1,7 @@
-﻿import json
+import json
 import random
 import re
+import urllib.error
 import urllib.parse
 import urllib.request
 import uuid
@@ -78,8 +79,11 @@ def call_vk_method(method_name: str, payload: dict[str, str | int]) -> dict:
         method="POST",
     )
 
-    with urllib.request.urlopen(request, timeout=settings.VK_REQUEST_TIMEOUT_SECONDS) as response:
-        response_body = response.read().decode("utf-8")
+    try:
+        with urllib.request.urlopen(request, timeout=settings.VK_REQUEST_TIMEOUT_SECONDS) as response:
+            response_body = response.read().decode("utf-8")
+    except urllib.error.URLError as exc:
+        raise VKAPIError(None, f"VK API request failed: {exc}") from exc
 
     data = json.loads(response_body)
     if "error" in data:
@@ -236,8 +240,11 @@ def upload_multipart_file(upload_url: str, *, file_name: str, content: bytes) ->
         method="POST",
         headers={"Content-Type": f"multipart/form-data; boundary={boundary}"},
     )
-    with urllib.request.urlopen(request, timeout=settings.VK_REQUEST_TIMEOUT_SECONDS) as response:
-        response_body = response.read().decode("utf-8")
+    try:
+        with urllib.request.urlopen(request, timeout=settings.VK_REQUEST_TIMEOUT_SECONDS) as response:
+            response_body = response.read().decode("utf-8")
+    except urllib.error.URLError as exc:
+        raise VKAPIError(None, f"VK document upload failed: {exc}") from exc
     data = json.loads(response_body)
     if "error" in data:
         error = data["error"]
@@ -277,4 +284,10 @@ def upload_vk_document(*, file_name: str, content: bytes, user_id: int | None = 
         raise VKAPIError(None, "VK document upload did not return file token.")
     saved = call_vk_method("docs.save", {"file": file_token, "title": file_name})
     doc = extract_saved_doc(saved.get("response"))
-    return f"doc{int(doc['owner_id'])}_{int(doc['id'])}"
+    attachment = f"doc{int(doc['owner_id'])}_{int(doc['id'])}"
+    access_key = str(doc.get("access_key") or "").strip()
+    if access_key:
+        attachment = f"{attachment}_{access_key}"
+    return attachment
+
+
