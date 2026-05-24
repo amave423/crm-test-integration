@@ -106,12 +106,20 @@ func StartAttempt(w http.ResponseWriter, r *http.Request) {
 	resumeActiveAttempt := false
 	if err := database.DB.Where("intern_id = ? AND end_time IS NULL", claims.UserID).
 		First(&existingActiveAttempt).Error; err == nil {
-		sameApplication := req.ApplicationID == 0 || existingActiveAttempt.ApplicationID == req.ApplicationID
-		if existingActiveAttempt.ConfigID != eventConfig.ConfigID || !sameApplication {
-			http.Error(w, "You already have an active attempt", http.StatusConflict)
-			return
+		sameApplication := existingActiveAttempt.ApplicationID == req.ApplicationID
+		sameConfig := existingActiveAttempt.ConfigID == eventConfig.ConfigID
+		if sameConfig && sameApplication {
+			resumeActiveAttempt = true
+		} else {
+			now := time.Now()
+			existingActiveAttempt.EndTime = &now
+			existingActiveAttempt.Passed = false
+			existingActiveAttempt.Score = 0
+			if err := database.DB.Save(&existingActiveAttempt).Error; err != nil {
+				http.Error(w, "Failed to close previous active attempt: "+err.Error(), http.StatusInternalServerError)
+				return
+			}
 		}
-		resumeActiveAttempt = true
 	} else if err != nil && !errors.Is(err, gorm.ErrRecordNotFound) {
 		http.Error(w, "Database error: "+err.Error(), http.StatusInternalServerError)
 		return

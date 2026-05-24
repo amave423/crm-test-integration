@@ -15,7 +15,7 @@ type Question struct {
 	Type        QType
 	Options     datatypes.JSON
 	OrderNumber int
-	// Связи
+	// Relations
 	Test Test `gorm:"foreignKey:TestID;constraint:OnDelete:CASCADE;"`
 }
 

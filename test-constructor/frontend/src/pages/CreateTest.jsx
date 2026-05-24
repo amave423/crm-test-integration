@@ -124,10 +124,13 @@ export default function CreateTest() {
             };
 
             return editingTest.questions.map((q, idx) => {
-                const apiOptions = q.options || {};
+                const legacyOptionsArray = Array.isArray(q.options) ? q.options : [];
+                const apiOptions = Array.isArray(q.options) ? {} : q.options || {};
                 const uiType = typeMap[q.type] || q.type || "shortText";
+                const asArray = (value) => Array.isArray(value) ? value : [];
+                const firstNonEmptyArray = (...values) => values.find((value) => Array.isArray(value) && value.length > 0) || [];
                 const normalizeChoices = (choices = []) =>
-                    choices.map((item) => ({
+                    asArray(choices).map((item) => ({
                         text: item.text || "",
                         isCorrect: Boolean(item.isCorrect ?? item.is_true),
                         points: item.points || 0,
@@ -154,16 +157,22 @@ export default function CreateTest() {
                     case "singleChoice":
                         return {
                             ...base,
-                            options: normalizeChoices(q.options || q.choice || apiOptions.choice || [{ text: "", isCorrect: false }]),
+                            options: normalizeChoices(firstNonEmptyArray(q.choice, legacyOptionsArray, apiOptions.choice, [{ text: "", isCorrect: false }])),
                         };
                     case "multipleChoice":
                         return {
                             ...base,
-                            options: normalizeChoices(q.options || q.choice || apiOptions.choice || [{ text: "", isCorrect: false }]),
+                            options: normalizeChoices(firstNonEmptyArray(q.choice, legacyOptionsArray, apiOptions.choice, [{ text: "", isCorrect: false }])),
                             scoringType: q.scoringType || "allOrNothing",
                         };
                     case "matching": {
-                        const rows = q.rows || q.matching || apiOptions.matching || [];
+                        const matchingSource = q.rows || q.matching || apiOptions.matching || [];
+                        const rows = Array.isArray(matchingSource)
+                            ? matchingSource
+                            : asArray(matchingSource.left || matchingSource.leftColumn).map((left, index) => ({
+                                  option: left,
+                                  answer: asArray(matchingSource.right || matchingSource.rightColumn)[index] || "",
+                              }));
                         return {
                             ...base,
                             rows: rows.length
@@ -174,11 +183,14 @@ export default function CreateTest() {
                                 : [{ option: "", answer: "" }],
                         };
                     }
-                    case "ordering":
+                    case "ordering": {
+                        const sequenceSource = q.items || q.sequence || apiOptions.sequence || [];
+                        const items = asArray(sequenceSource).map((item) => typeof item === "string" ? item : item.text || "");
                         return {
                             ...base,
-                            items: q.items || q.sequence || (apiOptions.sequence || []).map((item) => item.text || item) || [""],
+                            items: items.length ? items : [""],
                         };
+                    }
                     default:
                         return base;
                 }
