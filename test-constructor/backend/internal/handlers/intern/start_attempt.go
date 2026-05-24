@@ -76,6 +76,15 @@ type PublicMatching struct {
 	RightColumn []string `json:"right,omitempty"`
 }
 
+func syncTestingStartedStatus(applicationID uint) {
+	if applicationID == 0 {
+		return
+	}
+	if err := sendApplicationStatusToCRM(applicationID, crmStatusTestingStarted); err != nil {
+		log.Printf("CRM testing status sync failed: %v", err)
+	}
+}
+
 func StartAttempt(w http.ResponseWriter, r *http.Request) {
 	claims, ok := r.Context().Value(middleware.UserContextKey).(*auth.JWTClaims)
 	if !ok {
@@ -212,6 +221,13 @@ func StartAttempt(w http.ResponseWriter, r *http.Request) {
 			Options:     publicOptions,
 		}
 	}
+
+	applicationIDForCRM := req.ApplicationID
+	if resumeActiveAttempt && applicationIDForCRM == 0 {
+		applicationIDForCRM = existingActiveAttempt.ApplicationID
+	}
+	syncTestingStartedStatus(applicationIDForCRM)
+
 	if resumeActiveAttempt {
 		response := StartAttemptResponse{
 			ConfigID:      eventConfig.ConfigID,

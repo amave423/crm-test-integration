@@ -53,8 +53,9 @@ type FinishAttemptResponse struct {
 }
 
 const (
-	crmStatusChatLinkSent  = "Отправлена ссылка на орг. чат"
-	crmStatusTestingFailed = "Не прошел тестирование"
+	crmStatusTestingStarted = "Прохождение тестирования"
+	crmStatusChatLinkSent   = "Отправлена ссылка на орг. чат"
+	crmStatusTestingFailed  = "Не прошел тестирование"
 )
 
 func FinishAttempt(w http.ResponseWriter, r *http.Request) {
