@@ -11,6 +11,7 @@ interface Props {
   onSearch?: (v: string) => void;
   onSearchSubmit?: (v: string) => void;
   onCreate?: () => void;
+  canCreate?: boolean;
 }
 
 export default function TableHeader({
@@ -18,7 +19,8 @@ export default function TableHeader({
   search,
   onSearch,
   onSearchSubmit,
-  onCreate
+  onCreate,
+  canCreate = true
 }: Props) {
   const { user } = useContext(AuthContext);
   const isOrganizer = user?.role === "organizer";
@@ -28,7 +30,7 @@ export default function TableHeader({
       <div className="left-side">
         <h1 className="h1">{title}</h1>
 
-        {isOrganizer && onCreate && (
+        {isOrganizer && canCreate && onCreate && (
           <AppButton className="create-btn" onClick={onCreate}>
             <PlusOutlined />
           </AppButton>

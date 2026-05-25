@@ -12,6 +12,8 @@ interface User {
   vk?: string;
   vkConfirmed?: boolean;
   vkBotUrl?: string;
+  managedEventIds?: number[];
+  isGlobalOrganizer?: boolean;
   isSuperuser?: boolean;
   isStaff?: boolean;
   password?: string;
@@ -24,6 +26,13 @@ type AuthActionResult = {
 
 type BackendUserRecord = Record<string, unknown>;
 type MockUser = User & { password?: string; confirm?: string };
+
+function toNumberList(value: unknown): number[] {
+  if (!Array.isArray(value)) return [];
+  return value
+    .map((item) => Number(item))
+    .filter((item) => Number.isFinite(item) && item > 0);
+}
 type ProfileUpdate = Partial<User> &
   Record<string, unknown> & {
     first_name?: string;
@@ -69,8 +78,10 @@ function mapBackendUser(data: unknown): User | null {
   const vk = String(obj.vk ?? profile.vk ?? "");
   const vkConfirmed = Boolean(obj.vkConfirmed ?? obj.vk_confirmed ?? profile.vkConfirmed ?? profile.vk_confirmed);
   const vkBotUrl = String(obj.vkBotUrl ?? obj.vk_bot_url ?? profile.vkBotUrl ?? profile.vk_bot_url ?? "");
+  const managedEventIds = toNumberList(obj.managedEventIds ?? obj.managed_event_ids ?? profile.managedEventIds ?? profile.managed_event_ids);
   const isSuperuser = Boolean(obj.isSuperuser ?? obj.is_superuser);
   const isStaff = Boolean(obj.isStaff ?? obj.is_staff);
+  const isGlobalOrganizer = Boolean(obj.isGlobalOrganizer ?? obj.is_global_organizer ?? isSuperuser ?? isStaff);
   let role = "guest";
   if (typeof obj.role === "string") {
     role = obj.role;
@@ -97,6 +108,8 @@ function mapBackendUser(data: unknown): User | null {
     vk,
     vkConfirmed,
     vkBotUrl,
+    managedEventIds,
+    isGlobalOrganizer,
     isSuperuser,
     isStaff,
   };

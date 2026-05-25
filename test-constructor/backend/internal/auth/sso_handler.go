@@ -23,17 +23,19 @@ type SSOExchangeRequest struct {
 }
 
 type CRMSSOUser struct {
-	ID              uint   `json:"id"`
-	Email           string `json:"email"`
-	FirstName       string `json:"first_name"`
-	LastName        string `json:"last_name"`
-	DisplayName     string `json:"display_name"`
-	Role            string `json:"role"`
-	VK              string `json:"vk"`
-	VKConfirmed     bool   `json:"vk_confirmed"`
-	Course          *int   `json:"course"`
-	Specialty       string `json:"specialty"`
-	Specializations any    `json:"specializations"`
+	ID                uint   `json:"id"`
+	Email             string `json:"email"`
+	FirstName         string `json:"first_name"`
+	LastName          string `json:"last_name"`
+	DisplayName       string `json:"display_name"`
+	Role              string `json:"role"`
+	ManagedEventIDs   []uint `json:"managed_event_ids"`
+	IsGlobalOrganizer bool   `json:"is_global_organizer"`
+	VK                string `json:"vk"`
+	VKConfirmed       bool   `json:"vk_confirmed"`
+	Course            *int   `json:"course"`
+	Specialty         string `json:"specialty"`
+	Specializations   any    `json:"specializations"`
 }
 
 type CRMContextApplication struct {
@@ -116,7 +118,15 @@ func SSOExchange(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	token, err := GenerateJWT(user.ID, user.Email, user.Name, user.Surname, user.Role.Code)
+	token, err := GenerateJWTWithScope(
+		user.ID,
+		user.Email,
+		user.Name,
+		user.Surname,
+		user.Role.Code,
+		crmPayload.User.ManagedEventIDs,
+		crmPayload.User.IsGlobalOrganizer,
+	)
 	if err != nil {
 		http.Error(w, "Failed to create token", http.StatusInternalServerError)
 		return

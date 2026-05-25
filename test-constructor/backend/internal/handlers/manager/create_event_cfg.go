@@ -80,6 +80,12 @@ func GetEventConfigs(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	claims, _ := r.Context().Value(middleware.UserContextKey).(*auth.JWTClaims)
+	if claims != nil && !claims.CanManageEvent(uint(eventID)) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
+
 	var configs []models.EventConfig
 	if err := database.DB.
 		Preload("ExtraThreshold").
@@ -114,6 +120,10 @@ func CreateConfig(w http.ResponseWriter, r *http.Request) {
 
 	if req.EventID < 1 || req.SpecializationID < 1 || req.TestID < 1 {
 		http.Error(w, "ID должен быть положительным", http.StatusBadRequest)
+		return
+	}
+	if !claims.CanManageEvent(req.EventID) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
@@ -189,7 +199,7 @@ func CreateConfig(w http.ResponseWriter, r *http.Request) {
 
 	for _, eThreshold := range req.ExtraThreshold {
 		extraThreshold := models.ExtraThreshold{
-			ConfigID:   eventCFG.ConfigID,
+			ConfigID:  eventCFG.ConfigID,
 			Threshold: eThreshold.Threshold,
 			Message:   eThreshold.Message,
 			TestID:    eThreshold.TestID,
@@ -253,6 +263,10 @@ func UpdateConfig(w http.ResponseWriter, r *http.Request) {
 		http.Error(w, "ID должен быть положительным", http.StatusBadRequest)
 		return
 	}
+	if !claims.CanManageEvent(req.EventID) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
+		return
+	}
 
 	if req.Threshold < 1 {
 		http.Error(w, "Пороговое значение должно быть положительным", http.StatusBadRequest)
@@ -277,6 +291,11 @@ func UpdateConfig(w http.ResponseWriter, r *http.Request) {
 	if err := transaction.Where("config_id = ?", uint(configID)).First(&existingConfig).Error; err != nil {
 		transaction.Rollback()
 		http.Error(w, "Конфигурация не найдена", http.StatusNotFound)
+		return
+	}
+	if !claims.CanManageEvent(existingConfig.EventID) || !claims.CanManageEvent(req.EventID) {
+		transaction.Rollback()
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 
@@ -305,7 +324,7 @@ func UpdateConfig(w http.ResponseWriter, r *http.Request) {
 
 	for _, eThreshold := range req.ExtraThreshold {
 		extraThreshold := models.ExtraThreshold{
-			ConfigID:   existingConfig.ConfigID,
+			ConfigID:  existingConfig.ConfigID,
 			Threshold: eThreshold.Threshold,
 			Message:   eThreshold.Message,
 			TestID:    eThreshold.TestID,

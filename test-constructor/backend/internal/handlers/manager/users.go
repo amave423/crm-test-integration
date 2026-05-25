@@ -9,7 +9,9 @@ import (
 	"sort"
 	"strconv"
 	"test-constructor/config"
+	"test-constructor/internal/auth"
 	"test-constructor/internal/database"
+	"test-constructor/internal/middleware"
 	"test-constructor/internal/models"
 
 	"github.com/gorilla/mux"
@@ -62,14 +64,40 @@ type crmEventInfo struct {
 }
 
 func GetUsers(w http.ResponseWriter, r *http.Request) {
+	claims, _ := r.Context().Value(middleware.UserContextKey).(*auth.JWTClaims)
 	var internRole models.Role
 	if err := database.DB.Where("code = ?", "intern").First(&internRole).Error; err != nil {
 		http.Error(w, "Роль стажера не найдена", http.StatusInternalServerError)
 		return
 	}
 
+	query := database.DB.Where("role_id = ?", internRole.ID)
+	scopedEventIDs := []uint(nil)
+	if claims != nil && claims.HasLimitedEventScope() {
+		scopedEventIDs = claims.ScopedEventIDs()
+		if len(scopedEventIDs) == 0 {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(GetUsersResponse{Users: []UserInfo{}})
+			return
+		}
+	}
+	if len(scopedEventIDs) > 0 {
+		var scopedUserIDs []uint
+		database.DB.Model(&models.Attempt{}).
+			Joins("JOIN event_configs ON event_configs.config_id = attempts.config_id").
+			Where("event_configs.event_id IN ?", scopedEventIDs).
+			Distinct().
+			Pluck("attempts.intern_id", &scopedUserIDs)
+		if len(scopedUserIDs) == 0 {
+			w.Header().Set("Content-Type", "application/json")
+			json.NewEncoder(w).Encode(GetUsersResponse{Users: []UserInfo{}})
+			return
+		}
+		query = query.Where("id IN ?", scopedUserIDs)
+	}
+
 	var users []models.User
-	if err := database.DB.Where("role_id = ?", internRole.ID).Order("surname, name").Find(&users).Error; err != nil {
+	if err := query.Order("surname, name").Find(&users).Error; err != nil {
 		http.Error(w, "Ошибка получения пользователей: "+err.Error(), http.StatusInternalServerError)
 		return
 	}
@@ -96,7 +124,12 @@ func GetUserStatistics(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	stats, err := buildUserStatistics(uint(userID))
+	claims, _ := r.Context().Value(middleware.UserContextKey).(*auth.JWTClaims)
+	scopedEventIDs := []uint(nil)
+	if claims != nil && claims.HasLimitedEventScope() {
+		scopedEventIDs = claims.ScopedEventIDs()
+	}
+	stats, err := buildUserStatistics(uint(userID), scopedEventIDs)
 	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			http.Error(w, "Пользователь не найден", http.StatusNotFound)
@@ -110,14 +143,18 @@ func GetUserStatistics(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(stats)
 }
 
-func buildUserStatistics(userID uint) (*UserStatisticsResponse, error) {
+func buildUserStatistics(userID uint, scopedEventIDs []uint) (*UserStatisticsResponse, error) {
 	var user models.User
 	if err := database.DB.First(&user, userID).Error; err != nil {
 		return nil, err
 	}
 
 	var attempts []models.Attempt
-	if err := database.DB.Where("intern_id = ? AND end_time IS NOT NULL", userID).
+	query := database.DB.Where("intern_id = ? AND end_time IS NOT NULL", userID)
+	if len(scopedEventIDs) > 0 {
+		query = query.Joins("JOIN event_configs ON event_configs.config_id = attempts.config_id").Where("event_configs.event_id IN ?", scopedEventIDs)
+	}
+	if err := query.
 		Preload("EventConfig").
 		Preload("EventConfig.Test").
 		Preload("EventConfig.Test.Questions").

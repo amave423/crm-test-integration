@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useMemo, useState } from "react";
+﻿import { useCallback, useContext, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getDirectionById } from "../api/directions";
 import { getEventById } from "../api/events";
@@ -13,6 +13,8 @@ import PageLoader from "../../../components/Loading/PageLoader";
 import BackButton from "../../../components/UI/BackButton";
 import { useSearchSubmitFeedback } from "../../../hooks/useSearchSubmitFeedback";
 import { getAllUsers } from "../../../storage/storage";
+import { AuthContext } from "../../../context/AuthContext";
+import { canManageEvent } from "../../../utils/access";
 import type { Direction } from "../../../types/direction";
 import type { Event } from "../../../types/event";
 import type { Project } from "../../../types/project";
@@ -46,6 +48,7 @@ export default function ProjectsPage() {
   const eventIdNum = Number(eventId);
   const directionIdNum = Number(directionId);
   const { showToast } = useToast();
+  const { user } = useContext(AuthContext);
 
   const [event, setEvent] = useState<Event | null>(null);
   const [direction, setDirection] = useState<Direction | null>(null);
@@ -102,6 +105,7 @@ export default function ProjectsPage() {
   }, [loadAll]);
 
   const filteredProjects = useMemo(() => filterProjectsByQuery(projects, search), [projects, search]);
+  const canManageCurrentEvent = canManageEvent(user, event || { id: eventIdNum });
 
   const { animatedIds: searchAnimatedIds, handleSearchSubmit } = useSearchSubmitFeedback({
     getMatches: (query) => filterProjectsByQuery(projects, query),
@@ -122,6 +126,7 @@ export default function ProjectsPage() {
         search={search}
         onSearch={setSearch}
         onSearchSubmit={handleSearchSubmit}
+        canCreate={canManageCurrentEvent}
         onCreate={() => {
           setMode("create");
           setWizardContext({ type: "project", eventId: eventIdNum, directionId: directionIdNum });
@@ -136,6 +141,7 @@ export default function ProjectsPage() {
         ]}
         data={filteredProjects}
         animatedIds={searchAnimatedIds}
+        canEditRow={() => canManageCurrentEvent}
         onEdit={(row) => {
           setMode("edit");
           setWizardContext({

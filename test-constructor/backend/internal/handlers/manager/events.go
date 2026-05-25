@@ -5,6 +5,8 @@ import (
 	"io"
 	"net/http"
 	"test-constructor/config"
+	"test-constructor/internal/auth"
+	"test-constructor/internal/middleware"
 )
 
 type Event struct {
@@ -27,6 +29,7 @@ type Event struct {
 // @Failure 404 {object} map[string]string
 // @Router /api/manager/events [get]
 func GetEvents(w http.ResponseWriter, r *http.Request) {
+	claims, _ := r.Context().Value(middleware.UserContextKey).(*auth.JWTClaims)
 	cfg := config.Load()
 	crmService := cfg.CRMService
 	crmToken := cfg.CRMToken
@@ -65,7 +68,11 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	filtered := make([]Event, 0, len(events))
 	for index := range events {
+		if claims != nil && !claims.CanManageEvent(events[index].ID) {
+			continue
+		}
 		if events[index].Name == "" {
 			events[index].Name = events[index].Title
 		}
@@ -80,8 +87,9 @@ func GetEvents(w http.ResponseWriter, r *http.Request) {
 				events[index].Specializations[specIndex].Name = events[index].Specializations[specIndex].Title
 			}
 		}
+		filtered = append(filtered, events[index])
 	}
 
 	w.Header().Set("Content-Type", "application/json")
-	json.NewEncoder(w).Encode(events)
+	json.NewEncoder(w).Encode(filtered)
 }

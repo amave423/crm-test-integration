@@ -1,10 +1,12 @@
-﻿package manager
+package manager
 
 import (
 	"encoding/json"
 	"net/http"
 	"strconv"
+	"test-constructor/internal/auth"
 	"test-constructor/internal/database"
+	"test-constructor/internal/middleware"
 	"test-constructor/internal/models"
 
 	"github.com/gorilla/mux"
@@ -41,6 +43,11 @@ func GetEventAttempts(w http.ResponseWriter, r *http.Request) {
 	eventID, err := strconv.ParseUint(vars["id"], 10, 64)
 	if err != nil || eventID == 0 {
 		http.Error(w, "Invalid event id", http.StatusBadRequest)
+		return
+	}
+	claims, _ := r.Context().Value(middleware.UserContextKey).(*auth.JWTClaims)
+	if claims != nil && !claims.CanManageEvent(uint(eventID)) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 

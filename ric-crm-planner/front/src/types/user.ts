@@ -7,6 +7,8 @@ export interface User {
   vk?: string;
   vkConfirmed?: boolean;
   vkBotUrl?: string;
+  managedEventIds?: number[];
+  isGlobalOrganizer?: boolean;
   isSuperuser?: boolean;
   isStaff?: boolean;
   password?: string;

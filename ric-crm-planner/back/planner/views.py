@@ -89,22 +89,20 @@ def _assigned_event_ids_for_user(user):
     )
 
 
-def _team_ids_created_by_event_organizer(teams, user_id, event_ids):
+def _team_ids_for_event_organizer(teams, event_ids):
     if not isinstance(teams, list) or not event_ids:
         return set()
     return {
         _to_int(team.get("id"))
         for team in teams
-        if isinstance(team, dict)
-        and _team_event_id(team) in event_ids
-        and _team_created_by(team) == user_id
+        if isinstance(team, dict) and _team_event_id(team) in event_ids
     } - {None}
 
 
 def _visible_team_ids_for_restricted_user(teams, user):
     user_id = _to_int(user.id)
     assigned_event_ids = _assigned_event_ids_for_user(user)
-    return _team_ids_for_user(teams, user_id) | _team_ids_created_by_event_organizer(teams, user_id, assigned_event_ids)
+    return _team_ids_for_user(teams, user_id) | _team_ids_for_event_organizer(teams, assigned_event_ids)
 
 
 def _assignee_id_from_item(item):
@@ -292,7 +290,7 @@ class PlannerStateCompatView(RetrieveUpdateAPIView):
             assigned_event_ids = _assigned_event_ids_for_user(self.request.user)
             incoming_teams = workspace.teams if isinstance(workspace.teams, list) else []
             member_team_ids = _team_ids_for_user(previous_teams, user_id)
-            organizer_team_ids = _team_ids_created_by_event_organizer(previous_teams + incoming_teams, user_id, assigned_event_ids)
+            organizer_team_ids = _team_ids_for_event_organizer(previous_teams + incoming_teams, assigned_event_ids)
             allowed_team_ids = member_team_ids | organizer_team_ids
             incoming_parent_tasks = workspace.parent_tasks if isinstance(workspace.parent_tasks, list) else []
             incoming_subtasks = workspace.subtasks if isinstance(workspace.subtasks, list) else []
@@ -301,7 +299,6 @@ class PlannerStateCompatView(RetrieveUpdateAPIView):
                 for team in incoming_teams
                 if _to_int(team.get("id")) in organizer_team_ids
                 and _team_event_id(team) in assigned_event_ids
-                and _team_created_by(team) == user_id
             ]
             foreign_teams = [
                 team for team in previous_teams if _to_int(team.get("id")) not in organizer_team_ids

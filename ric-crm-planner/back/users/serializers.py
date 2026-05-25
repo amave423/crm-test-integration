@@ -155,6 +155,8 @@ class UserSerializer(ModelSerializer):
     vk = serializers.SerializerMethodField()
     vkConfirmed = serializers.SerializerMethodField()
     vkBotUrl = serializers.SerializerMethodField()
+    managedEventIds = serializers.SerializerMethodField()
+    isGlobalOrganizer = serializers.SerializerMethodField()
     isSuperuser = serializers.BooleanField(source="is_superuser", read_only=True)
     isStaff = serializers.BooleanField(source="is_staff", read_only=True)
 
@@ -170,6 +172,8 @@ class UserSerializer(ModelSerializer):
             "vk",
             "vkConfirmed",
             "vkBotUrl",
+            "managedEventIds",
+            "isGlobalOrganizer",
             "isSuperuser",
             "isStaff",
         )
@@ -182,14 +186,27 @@ class UserSerializer(ModelSerializer):
         profile = getattr(obj, "crm_profile", None)
         return getattr(obj, "last_name", "") or getattr(profile, "surname", "")
 
-    def get_role(self, obj):
+    def get_isGlobalOrganizer(self, obj):
         if getattr(obj, "is_superuser", False) or getattr(obj, "is_staff", False):
+            return True
+        return CRMRole.objects.filter(user=obj, role_type__in=(ROLE_CURATOR, ROLE_ADMIN)).exists()
+
+    def get_managedEventIds(self, obj):
+        if not obj or not getattr(obj, "is_authenticated", True):
+            return []
+        return list(
+            Event.objects.filter(Q(leader=obj) | Q(organizers=obj))
+            .order_by("id")
+            .values_list("id", flat=True)
+            .distinct()
+        )
+
+    def get_role(self, obj):
+        if self.get_isGlobalOrganizer(obj):
             return "organizer"
 
         roles = set(CRMRole.objects.filter(user=obj).values_list("role_type", flat=True))
-        if roles.intersection({ROLE_CURATOR, ROLE_ADMIN}):
-            return "organizer"
-        if Event.objects.filter(Q(leader=obj) | Q(organizers=obj)).exists():
+        if self.get_managedEventIds(obj):
             return "organizer"
         if ROLE_PROJECTANT in roles:
             return "student"

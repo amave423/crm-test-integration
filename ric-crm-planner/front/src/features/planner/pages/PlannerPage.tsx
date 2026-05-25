@@ -37,12 +37,19 @@ import {
 } from "../planner.catalog";
 import { buildApplicantsTree, buildProjectApplicantGroups } from "../planner.applicants";
 import { fullName, isFallbackParticipantName, PLANNED_KANBAN_STATUS, roleFlags } from "../planner.utils";
+import { getManagedEventIds, isGlobalOrganizer } from "../../../utils/access";
 import "../planner.scss";
 
 export default function PlannerPage() {
   const { user } = useContext(AuthContext);
   const { showToast } = useToast();
-  const { isOrganizer, isCurator, isStudent } = roleFlags(user?.role);
+  const role = roleFlags(user?.role);
+  const managedEventIdSet = useMemo(() => getManagedEventIds(user), [user]);
+  const hasScopedOrganizerAccess = managedEventIdSet.size > 0;
+  const hasGlobalOrganizerAccess = isGlobalOrganizer(user) || role.isOrganizer && !hasScopedOrganizerAccess;
+  const isOrganizer = hasGlobalOrganizerAccess || hasScopedOrganizerAccess;
+  const isCurator = role.isCurator;
+  const isStudent = role.isStudent && !isOrganizer;
   const userId = Number(user?.id || 0);
   const skipNextPlannerSaveRef = useRef(false);
 
@@ -253,8 +260,14 @@ export default function PlannerPage() {
   );
   const studentHasPlannerAccess = !isStudent || confirmedMemberTeamIds.length > 0 || studentIsSyncedParticipant;
   const studentWaitingForConfirmedTeam = isStudent && studentHasPlannerAccess && confirmedMemberTeamIds.length === 0;
-  const canViewTeam = (teamId: number) => isOrganizer || isCurator || (isStudent && confirmedMemberTeamIds.includes(teamId));
-  const canEditTeam = (teamId: number) => isOrganizer || (isCurator && curatorTeamIds.includes(teamId)) || (isStudent && confirmedMemberTeamIds.includes(teamId));
+  const teamById = useMemo(() => new Map(state.teams.map((team) => [Number(team.id), team])), [state.teams]);
+  const isManagedTeam = (teamId: number) => {
+    if (hasGlobalOrganizerAccess) return true;
+    const team = teamById.get(Number(teamId));
+    return Boolean(team && managedEventIdSet.has(Number(team.eventId)));
+  };
+  const canViewTeam = (teamId: number) => isManagedTeam(teamId) || isCurator || (isStudent && confirmedMemberTeamIds.includes(teamId));
+  const canEditTeam = (teamId: number) => isManagedTeam(teamId) || (isCurator && curatorTeamIds.includes(teamId)) || (isStudent && confirmedMemberTeamIds.includes(teamId));
 
   const visibleTeams = state.teams.filter((t) => canViewTeam(t.id) && !hiddenEventIdSet.has(Number(t.eventId)));
   const activeTeamId = teamFilter ? Number(teamFilter) : null;

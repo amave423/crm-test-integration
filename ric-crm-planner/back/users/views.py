@@ -195,13 +195,21 @@ def _build_testing_sso_user_payload(user):
         applications__user=user,
     ).distinct().order_by("name")
 
+    user_serializer = UserSerializer()
+    managed_event_ids = user_serializer.get_managedEventIds(user)
+    is_global_organizer = user_serializer.get_isGlobalOrganizer(user)
+
     return {
         "id": user.id,
         "email": user.email,
         "first_name": first_name,
         "last_name": last_name,
         "display_name": display_name or user.email,
-        "role": UserSerializer().get_role(user),
+        "role": user_serializer.get_role(user),
+        "managed_event_ids": managed_event_ids,
+        "managedEventIds": managed_event_ids,
+        "is_global_organizer": is_global_organizer,
+        "isGlobalOrganizer": is_global_organizer,
         "vk": getattr(profile, "vk", ""),
         "vk_confirmed": bool(getattr(profile, "vk_confirmed_at", None)),
         "course": getattr(profile, "course", None),

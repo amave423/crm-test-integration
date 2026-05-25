@@ -19,6 +19,7 @@ import { AuthContext } from "../../context/AuthContext";
 import { useNotifications } from "../../context/NotificationsContext";
 import client from "../../api/client";
 import { createTestingSSOLink } from "../../api/testing";
+import { isGlobalOrganizer } from "../../utils/access";
 import { useToast } from "../Toast/ToastProvider";
 import Modal from "../Modal/Modal";
 import AppButton from "../UI/Button";
@@ -76,7 +77,7 @@ export default function Header() {
   const unreadNoticeKeyRef = useRef("");
   const isProjectant = isProjectantRole(user?.role);
   const isOrganizer = isOrganizerRole(user?.role);
-  const canManageAutomation = Boolean(user && !isProjectant);
+  const canManageAutomation = Boolean(user && isGlobalOrganizer(user));
 
   useEffect(() => {
     if (!notificationsOpen) return;

@@ -1,4 +1,4 @@
-﻿import { useCallback, useEffect, useState } from "react";
+﻿import { useCallback, useContext, useEffect, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { getDirectionsByEvent } from "../api/directions";
 import { getEventById } from "../api/events";
@@ -9,6 +9,8 @@ import Table from "../../../components/Table/Table";
 import { useToast } from "../../../components/Toast/ToastProvider";
 import BackButton from "../../../components/UI/BackButton";
 import { useSearchSubmitFeedback } from "../../../hooks/useSearchSubmitFeedback";
+import { AuthContext } from "../../../context/AuthContext";
+import { canManageEvent } from "../../../utils/access";
 import type { Direction } from "../../../types/direction";
 import type { Event } from "../../../types/event";
 import "../../../styles/page-colors.scss";
@@ -29,6 +31,7 @@ export default function DirectionsPage() {
   const navigate = useNavigate();
   const eventIdNum = Number(eventId);
   const { showToast } = useToast();
+  const { user } = useContext(AuthContext);
 
   const [search, setSearch] = useState("");
   const [event, setEvent] = useState<Event | null>(null);
@@ -55,6 +58,7 @@ export default function DirectionsPage() {
   }, [loadDirections]);
 
   const filteredDirections = filterDirectionsByQuery(directions, search);
+  const canManageCurrentEvent = canManageEvent(user, event || { id: eventIdNum });
 
   const { animatedIds: searchAnimatedIds, handleSearchSubmit } = useSearchSubmitFeedback({
     getMatches: (query) => filterDirectionsByQuery(directions, query),
@@ -75,6 +79,7 @@ export default function DirectionsPage() {
         search={search}
         onSearch={setSearch}
         onSearchSubmit={handleSearchSubmit}
+        canCreate={canManageCurrentEvent}
         onCreate={() => {
           setMode("create");
           setWizardContext({ type: "direction", eventId: eventIdNum });
@@ -90,6 +95,7 @@ export default function DirectionsPage() {
         data={filteredDirections}
         animatedIds={searchAnimatedIds}
         onRowClick={(row) => navigate(`/events/${eventId}/directions/${row.id}/projects`)}
+        canEditRow={() => canManageCurrentEvent}
         onEdit={(row) => {
           setMode("edit");
           setWizardContext({

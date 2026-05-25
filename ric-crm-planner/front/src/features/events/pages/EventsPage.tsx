@@ -15,6 +15,7 @@ import { buildMockRequestTransitionUrl, REQUEST_STATUS } from "../../../constant
 import { AuthContext } from "../../../context/AuthContext";
 import { useNotifications } from "../../../context/NotificationsContext";
 import { useSearchSubmitFeedback } from "../../../hooks/useSearchSubmitFeedback";
+import { canManageEvent, isGlobalOrganizer } from "../../../utils/access";
 import type { Event } from "../../../types/event";
 import type { Request as RequestType } from "../../../types/request";
 import "../../../styles/page-colors.scss";
@@ -84,6 +85,7 @@ export default function EventsPage() {
   const { showToast } = useToast();
   const { addNotification } = useNotifications();
   const isStudent = user?.role === "student";
+  const canCreateEvent = isGlobalOrganizer(user);
 
   const [wizardOpen, setWizardOpen] = useState(false);
   const [wizardContext, setWizardContext] = useState<WizardLaunchContext | null>(null);
@@ -215,6 +217,7 @@ export default function EventsPage() {
         search={search}
         onSearch={setSearch}
         onSearchSubmit={handleSearchSubmit}
+        canCreate={canCreateEvent}
         onCreate={() => {
           setMode("create");
           setWizardContext({ type: "event" });
@@ -235,6 +238,7 @@ export default function EventsPage() {
         animatedIds={searchAnimatedIds}
         badgeKeys={["startDate", "endDate", "status"]}
         onRowClick={(row) => navigate(`/events/${row.id}/directions`)}
+        canEditRow={(row) => canManageEvent(user, row)}
         onEdit={(row) => {
           setMode("edit");
           setWizardContext({ type: "event", eventId: row.id });

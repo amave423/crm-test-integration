@@ -7,6 +7,8 @@ import (
 	"net/http"
 	"strconv"
 	"test-constructor/config"
+	"test-constructor/internal/auth"
+	"test-constructor/internal/middleware"
 
 	"github.com/gorilla/mux"
 )
@@ -16,8 +18,8 @@ type CRMEventResponse struct {
 }
 
 type Specialization struct {
-	ID   int    `json:"id"`
-	Name string `json:"name"`
+	ID    int    `json:"id"`
+	Name  string `json:"name"`
 	Title string `json:"title,omitempty"`
 }
 
@@ -43,6 +45,12 @@ func GetEventSpecializations(w http.ResponseWriter, r *http.Request) {
 	eventID, err := strconv.Atoi(eventIDStr)
 	if err != nil {
 		http.Error(w, "Неверный формат id", http.StatusBadRequest)
+		return
+	}
+
+	claims, _ := r.Context().Value(middleware.UserContextKey).(*auth.JWTClaims)
+	if claims != nil && !claims.CanManageEvent(uint(eventID)) {
+		http.Error(w, "Forbidden", http.StatusForbidden)
 		return
 	}
 

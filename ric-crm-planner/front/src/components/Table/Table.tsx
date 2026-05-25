@@ -16,6 +16,7 @@ interface Props<T> {
   onInfoClick?: (row: T) => void;
   onRowClick?: (row: T) => void;
   onEdit?: (row: T) => void;
+  canEditRow?: (row: T) => boolean;
   selectedId?: number;
   gridColumns?: string;
   renderCell?: (row: T, colKey: string) => React.ReactNode | undefined;
@@ -58,6 +59,7 @@ export default function Table<T>({
   onRowClick,
   onEdit,
   onInfoClick,
+  canEditRow,
   selectedId,
   gridColumns = "",
   renderCell,
@@ -129,8 +131,9 @@ export default function Table<T>({
             const statusCustom = renderCell?.(row, "status");
 	            const eventApplyCustom = hasApplyColumn ? renderCell?.(row, "apply") : undefined;
 
+            const rowCanEdit = isOrganizer && onEdit && (!canEditRow || canEditRow(row));
             const editActionButton =
-              isOrganizer && onEdit ? (
+              rowCanEdit ? (
                 <AppButton
                   className="edit-btn-icon"
                   onClick={(event) => {
