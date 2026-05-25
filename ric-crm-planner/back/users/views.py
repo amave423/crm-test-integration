@@ -1,4 +1,4 @@
-﻿from django.conf import settings
+from django.conf import settings
 import secrets
 from django.contrib.auth import get_user_model
 from django.contrib.auth.tokens import default_token_generator
@@ -639,6 +639,14 @@ class EventDetailView(RetrieveUpdateDestroyAPIView):
     serializer_class = EventSerializer
     queryset = Event.objects.all().select_related("leader", "specialization").prefetch_related("organizers")
     lookup_url_kwarg = "event_id"
+
+    def destroy(self, request, *args, **kwargs):
+        if not has_curator_or_admin_role(request.user):
+            return Response(
+                {"detail": "Архивировать мероприятие может только главный организатор."},
+                status=status.HTTP_403_FORBIDDEN,
+            )
+        return super().destroy(request, *args, **kwargs)
 
     def perform_destroy(self, instance):
         instance.is_archived = True

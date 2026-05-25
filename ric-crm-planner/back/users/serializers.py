@@ -529,6 +529,33 @@ class EventSerializer(ModelSerializer):
             return ", ".join(filter(None, (build_user_display_name(user) for user in organizers))) or None
         return build_user_display_name(obj.leader) or None
 
+    def _request_user(self):
+        request = self.context.get("request")
+        return getattr(request, "user", None)
+
+    def _can_manage_owner_fields(self):
+        user = self._request_user()
+        if not user or not getattr(user, "is_authenticated", False):
+            return False
+        if getattr(user, "is_superuser", False) or getattr(user, "is_staff", False):
+            return True
+        return CRMRole.objects.filter(user=user, role_type__in=(ROLE_CURATOR, ROLE_ADMIN)).exists()
+
+    def _reject_scoped_owner_changes(self, validated_data, organizers):
+        user = self._request_user()
+        if not user or not getattr(user, "is_authenticated", False):
+            return
+        if self._can_manage_owner_fields():
+            return
+
+        errors = {}
+        if organizers is not None or "leader" in validated_data:
+            errors["organizerIds"] = "Менять организаторов может только главный организатор."
+        if "is_archived" in validated_data or "archived_at" in validated_data:
+            errors["archived"] = "Архивировать мероприятие может только главный организатор."
+        if errors:
+            raise serializers.ValidationError(errors)
+
     def to_representation(self, instance):
         data = super().to_representation(instance)
         specializations = list(
@@ -567,6 +594,7 @@ class EventSerializer(ModelSerializer):
     def create(self, validated_data):
         chosen_specializations = self._resolve_specializations(validated_data)
         organizers = validated_data.pop("organizers", None)
+        self._reject_scoped_owner_changes(validated_data, organizers)
         if chosen_specializations:
             validated_data["specialization"] = chosen_specializations[0]
         if organizers and not validated_data.get("leader"):
@@ -582,6 +610,7 @@ class EventSerializer(ModelSerializer):
     def update(self, instance, validated_data):
         chosen_specializations = self._resolve_specializations(validated_data)
         organizers = validated_data.pop("organizers", None)
+        self._reject_scoped_owner_changes(validated_data, organizers)
         if chosen_specializations is not None:
             validated_data["specialization"] = chosen_specializations[0] if chosen_specializations else None
         if organizers and not validated_data.get("leader"):

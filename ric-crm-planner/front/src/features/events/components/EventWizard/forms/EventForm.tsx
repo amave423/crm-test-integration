@@ -1,5 +1,5 @@
-﻿import { CheckOutlined } from "@ant-design/icons";
-import { useEffect, useMemo, useRef, useState } from "react";
+import { CheckOutlined } from "@ant-design/icons";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { SPECIALIZATION_OPTIONS } from "../../../../../constants/specializations";
 import { getEventById, removeEvent as archiveEvent, saveEvent as persistEvent } from "../../../api/events";
 import { getRequests } from "../../../../requests/api/requests";
@@ -12,6 +12,8 @@ import AppInput, { AppTextArea } from "../../../../../components/UI/Input";
 import Modal from "../../../../../components/Modal/Modal";
 import AppSelect from "../../../../../components/UI/Select";
 import { useToast } from "../../../../../components/Toast/ToastProvider";
+import { AuthContext } from "../../../../../context/AuthContext";
+import { isGlobalOrganizer } from "../../../../../utils/access";
 import { useWizard } from "../EventWizardModal";
 import {
   CREATE_DRAFT_KEY,
@@ -30,6 +32,8 @@ export default function EventForm() {
   const seededEvent = savedEvent as Event | undefined;
   const seededEventRef = useRef<Event | undefined>(seededEvent);
   const { showToast } = useToast();
+  const { user: currentUser } = useContext(AuthContext);
+  const canManageEventOrganizers = isGlobalOrganizer(currentUser);
 
   const [loadedEvent, setLoadedEvent] = useState<Event | null>(seededEvent ?? null);
   const [title, setTitle] = useState("");
@@ -276,7 +280,7 @@ export default function EventForm() {
     if (!startDate) nextErrors.startDate = "Заполните поле";
     if (!endDate) nextErrors.endDate = "Заполните поле";
     if (!applyDeadline) nextErrors.applyDeadline = "Заполните поле";
-    if (!selectedOrganizerIds.length) nextErrors.organizers = "Выберите хотя бы одного организатора";
+    if (canManageEventOrganizers && !selectedOrganizerIds.length) nextErrors.organizers = "Выберите хотя бы одного организатора";
     if (!specializations.length) nextErrors.specializations = "Выберите хотя бы одну специализацию";
 
     setErrors(nextErrors);
@@ -287,6 +291,18 @@ export default function EventForm() {
     if (!validate()) return;
 
     const computedStatus = new Date(endDate) >= new Date() ? "Активно" : "Неактивно";
+    const organizerPayload = canManageEventOrganizers
+      ? {
+          leader: selectedOrganizerIds[0],
+          organizerIds: selectedOrganizerIds,
+          organizer: selectedOrganizerIds
+            .map((id) => organizers.find((organizer) => String(organizer.id) === String(id)))
+            .filter((organizer): organizer is User => Boolean(organizer))
+            .map(getUserLabel)
+            .join(", "),
+        }
+      : {};
+
     const payload: Event = {
       ...(loadedEvent ?? {}),
       id: mode === "edit" && eventId ? Number(eventId) : loadedEvent?.id ?? 0,
@@ -297,17 +313,17 @@ export default function EventForm() {
       applyDeadline,
       orgChatUrl: orgChatUrl.trim(),
       orgChatPeerId: orgChatPeerId ? Number(orgChatPeerId) : 0,
-      leader: selectedOrganizerIds[0],
-      organizerIds: selectedOrganizerIds,
-      organizer: selectedOrganizerIds
-        .map((id) => organizers.find((organizer) => String(organizer.id) === String(id)))
-        .filter((organizer): organizer is User => Boolean(organizer))
-        .map(getUserLabel)
-        .join(", "),
+      ...organizerPayload,
       specializations,
       status: computedStatus,
       applicationFormFields: loadedEvent?.applicationFormFields,
     };
+
+    if (!canManageEventOrganizers) {
+      delete payload.leader;
+      delete payload.organizerIds;
+      delete payload.organizer;
+    }
 
     try {
       const saved = await persistEvent(payload);
@@ -417,6 +433,7 @@ export default function EventForm() {
               onChange={(value) => setSelectedOrganizerId(String(value))}
               showSearch
               optionFilterProp="label"
+              disabled={!canManageEventOrganizers}
               options={[
                 { value: "", label: "Выберите организатора" },
                 ...organizers.map((organizer) => ({
@@ -429,7 +446,7 @@ export default function EventForm() {
               className="primary wizard-inline-add-button wizard-inline-add-button--event"
               type="button"
               onClick={addOrganizer}
-              disabled={!selectedOrganizerId}
+              disabled={!canManageEventOrganizers || !selectedOrganizerId}
             >
               Добавить
             </AppButton>
@@ -438,19 +455,24 @@ export default function EventForm() {
       </FieldWrap>
 
       <div className="tags">
+        {!canManageEventOrganizers && mode === "edit" && (
+          <div className="field-hint">Менять организаторов может только главный организатор.</div>
+        )}
         {selectedOrganizerIds.map((organizerId) => {
           const organizer = organizers.find((item) => String(item.id) === String(organizerId));
           return (
             <div key={organizerId} className="tag">
               {organizer ? getUserLabel(organizer) : `Организатор #${organizerId}`}
-              <AppButton
-                className="tag-remove"
-                type="button"
-                onClick={() => removeOrganizer(organizerId)}
-                aria-label="Удалить организатора"
-              >
-                x
-              </AppButton>
+              {canManageEventOrganizers && (
+                <AppButton
+                  className="tag-remove"
+                  type="button"
+                  onClick={() => removeOrganizer(organizerId)}
+                  aria-label="Удалить организатора"
+                >
+                  x
+                </AppButton>
+              )}
             </div>
           );
         })}
@@ -495,7 +517,7 @@ export default function EventForm() {
       </div>
 
       <div className="wizard-actions">
-        {mode === "edit" && (
+        {mode === "edit" && canManageEventOrganizers && (
           <AppButton className="danger-outline" onClick={() => setConfirmOpen(true)} style={{ marginRight: "auto" }}>
             Удалить
           </AppButton>
