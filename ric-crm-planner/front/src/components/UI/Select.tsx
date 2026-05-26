@@ -16,18 +16,32 @@ export default function Select({
   popupMatchSelectWidth = false,
   listHeight = 260,
   showSearch = false,
+  getPopupContainer,
+  virtual,
   ...props
 }: AppSelectProps) {
   const toneClass = tone ? `app-select--${tone}` : "";
   const popupToneClass = tone ? `app-select-dropdown--${tone}` : "";
   const popupRootClass = ["app-select-dropdown", popupToneClass, classNames?.popup?.root].filter(Boolean).join(" ");
+  const isMobile = typeof window !== "undefined" && window.matchMedia("(max-width: 768px)").matches;
+  const resolvedListHeight = isMobile ? Math.min(Number(listHeight) || 260, 190) : listHeight;
+  const resolvedVirtual = typeof virtual === "boolean" ? virtual : !isMobile;
+  const resolvePopupContainer =
+    getPopupContainer ??
+    ((triggerNode: HTMLElement) =>
+      (triggerNode.closest(".modal") as HTMLElement | null) ??
+      (triggerNode.closest(".wizard") as HTMLElement | null) ??
+      (triggerNode.closest(".modal-content") as HTMLElement | null) ??
+      document.body);
 
   return (
     <AntSelect
       {...props}
       popupMatchSelectWidth={popupMatchSelectWidth}
-      listHeight={listHeight}
+      listHeight={resolvedListHeight}
       showSearch={showSearch}
+      getPopupContainer={resolvePopupContainer}
+      virtual={resolvedVirtual}
       className={`app-select ${toneClass} ${className}`.trim()}
       classNames={{
         ...classNames,

@@ -1,4 +1,4 @@
-﻿.app-select.ant-select {
+.app-select.ant-select {
   --app-select-accent: #6495ed;
   --app-select-focus: rgba(100, 149, 237, 0.16);
   --app-select-soft: #fbfdff;
@@ -269,4 +269,17 @@
 
 .app-select-dropdown .ant-select-item-option-disabled {
   color: #9ca3af !important;
+}
+
+@media (max-width: 768px) {
+  .app-select-dropdown.ant-select-dropdown {
+    max-width: calc(100vw - 32px);
+    max-height: 210px;
+    overscroll-behavior: contain;
+  }
+
+  .app-select-dropdown .rc-virtual-list,
+  .app-select-dropdown .rc-virtual-list-holder {
+    max-height: 190px !important;
+  }
 }
