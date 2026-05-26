@@ -53,6 +53,7 @@ export default function PlannerPage() {
   const isStudent = role.isStudent && !isOrganizer;
   const userId = Number(user?.id || 0);
   const skipNextPlannerSaveRef = useRef(false);
+  const syncedProjectCuratorKeyRef = useRef<Set<string>>(new Set());
 
   const [tab, setTab] = useState<PlannerTab>(() => {
     const raw = localStorage.getItem("planner_tab_v1");
@@ -124,6 +125,37 @@ export default function PlannerPage() {
 
   const currentTimestamp = () => new Date().toISOString();
 
+  const resolveProjectIdFromRequestIds = (requestIds: number[]) => {
+    const projectIds = Array.from(
+      new Set(
+        requests
+          .filter((request) => requestIds.includes(Number(request.id)))
+          .map((request) => Number(request.projectId))
+          .filter((projectId) => Number.isFinite(projectId) && projectId > 0)
+      )
+    );
+
+    return projectIds.length === 1 ? projectIds[0] : undefined;
+  };
+
+  const resolveTeamProjectId = (team?: PlannerTeam) => {
+    const directProjectId = Number(team?.projectId);
+    if (Number.isFinite(directProjectId) && directProjectId > 0) return directProjectId;
+
+    return resolveProjectIdFromRequestIds(team?.sourceRequestIds || []);
+  };
+
+  const syncProjectCurator = (projectId?: number, curatorId?: number, options?: { silent?: boolean }) => {
+    const normalizedProjectId = Number(projectId);
+    const normalizedCuratorId = Number(curatorId);
+    if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0) return;
+    if (!Number.isFinite(normalizedCuratorId) || normalizedCuratorId <= 0) return;
+
+    void updateProjectCurator(normalizedProjectId, normalizedCuratorId).catch(() => {
+      if (!options?.silent) notifyError("Не удалось обновить куратора проекта");
+    });
+  };
+
   useEffect(() => {
     if (!isPlannerLoaded) return;
     if (skipNextPlannerSaveRef.current) {
@@ -132,6 +164,31 @@ export default function PlannerPage() {
     }
     void savePlannerState(state);
   }, [isPlannerLoaded, state]);
+
+  useEffect(() => {
+    if (!isPlannerLoaded) return;
+
+    const curatorIdsByProject = new Map<number, Set<number>>();
+    state.teams.forEach((team) => {
+      const projectId = resolveTeamProjectId(team);
+      const curatorId = Number(team.curatorId);
+      if (!projectId || !Number.isFinite(curatorId) || curatorId <= 0) return;
+
+      if (!curatorIdsByProject.has(projectId)) curatorIdsByProject.set(projectId, new Set());
+      curatorIdsByProject.get(projectId)?.add(curatorId);
+    });
+
+    curatorIdsByProject.forEach((curatorIds, projectId) => {
+      if (curatorIds.size !== 1) return;
+
+      const [curatorId] = Array.from(curatorIds);
+      const syncKey = `${projectId}:${curatorId}`;
+      if (syncedProjectCuratorKeyRef.current.has(syncKey)) return;
+
+      syncedProjectCuratorKeyRef.current.add(syncKey);
+      syncProjectCurator(projectId, curatorId, { silent: true });
+    });
+  }, [isPlannerLoaded, state.teams, requests]);
 
   useEffect(() => {
     localStorage.setItem("planner_tab_v1", tab);
@@ -475,9 +532,11 @@ export default function PlannerPage() {
     const directionIdNum = Number(teamDirectionByGroup[group.key]);
     const projectIdNum = Number(teamProjectByGroup[group.key]);
     const directionId = Number.isFinite(directionIdNum) && directionIdNum > 0 ? directionIdNum : undefined;
-    const projectId = Number.isFinite(projectIdNum) && projectIdNum > 0 ? projectIdNum : undefined;
 
     const requestIds = group.applicants.filter((a) => memberIds.includes(a.ownerId)).flatMap((a) => a.requestIds);
+    const projectId = Number.isFinite(projectIdNum) && projectIdNum > 0
+      ? projectIdNum
+      : resolveProjectIdFromRequestIds(requestIds);
     const memberRoles = group.applicants
       .filter((applicant) => memberIds.includes(applicant.ownerId) && applicant.specialization)
       .reduce<Record<string, string>>((acc, applicant) => {
@@ -515,6 +574,8 @@ export default function PlannerPage() {
         teams: [...prev.teams, created],
       };
     });
+
+    syncProjectCurator(projectId, curatorId);
 
     setSelectedApplicantsByGroup((prev) => ({ ...prev, [group.key]: [] }));
     setTeamNameByGroup((prev) => ({ ...prev, [group.key]: "" }));
@@ -940,9 +1001,7 @@ export default function PlannerPage() {
             setState(nextState);
             void savePlannerState(nextState);
 
-            if (targetTeam?.projectId) {
-              void updateProjectCurator(Number(targetTeam.projectId), curatorId).catch(() => null);
-            }
+            syncProjectCurator(resolveTeamProjectId(targetTeam), curatorId);
 
             notifySuccess("Куратор назначен");
           }}
