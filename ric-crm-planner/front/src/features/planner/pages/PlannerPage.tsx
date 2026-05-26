@@ -156,6 +156,15 @@ export default function PlannerPage() {
     });
   };
 
+  const clearProjectCurator = (projectId?: number, options?: { silent?: boolean }) => {
+    const normalizedProjectId = Number(projectId);
+    if (!Number.isFinite(normalizedProjectId) || normalizedProjectId <= 0) return;
+
+    void updateProjectCurator(normalizedProjectId, null).catch(() => {
+      if (!options?.silent) notifyError("Не удалось убрать куратора проекта");
+    });
+  };
+
   useEffect(() => {
     if (!isPlannerLoaded) return;
     if (skipNextPlannerSaveRef.current) {
@@ -1004,6 +1013,36 @@ export default function PlannerPage() {
             syncProjectCurator(resolveTeamProjectId(targetTeam), curatorId);
 
             notifySuccess("Куратор назначен");
+          }}
+          onClearTeamCurator={(teamId) => {
+            const targetTeam = state.teams.find((team) => Number(team.id) === Number(teamId));
+            const projectId = resolveTeamProjectId(targetTeam);
+            const nextState = {
+              ...state,
+              teams: state.teams.map((team) =>
+                Number(team.id) === Number(teamId) ? { ...team, curatorId: undefined, updatedAt: currentTimestamp() } : team
+              ),
+            };
+
+            setState(nextState);
+            void savePlannerState(nextState);
+
+            const remainingCuratorIds = Array.from(
+              new Set(
+                nextState.teams
+                  .filter((team) => Number(resolveTeamProjectId(team)) === Number(projectId))
+                  .map((team) => Number(team.curatorId))
+                  .filter((curatorId) => Number.isFinite(curatorId) && curatorId > 0)
+              )
+            );
+
+            if (remainingCuratorIds.length === 1) {
+              syncProjectCurator(projectId, remainingCuratorIds[0]);
+            } else {
+              clearProjectCurator(projectId);
+            }
+
+            notifySuccess("Куратор убран");
           }}
           onDeleteTeam={openDeleteTeamConfirm}
           sourceLabelForTeam={sourceLabelForTeam}

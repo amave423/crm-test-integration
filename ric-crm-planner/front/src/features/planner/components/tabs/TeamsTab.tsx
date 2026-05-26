@@ -39,6 +39,7 @@ type TeamsTabProps = {
   onOpenTeamInfo: (teamId: number) => void;
   onOpenTeamEdit: (teamId: number) => void;
   onAssignTeamCurator: (teamId: number, curatorId: number) => void;
+  onClearTeamCurator: (teamId: number) => void;
   onDeleteTeam: (teamId: number) => void;
   sourceLabelForTeam: (team: PlannerTeam) => string;
 };
@@ -93,6 +94,7 @@ export default function TeamsTab({
   onOpenTeamInfo,
   onOpenTeamEdit,
   onAssignTeamCurator,
+  onClearTeamCurator,
   onDeleteTeam,
   sourceLabelForTeam,
 }: TeamsTabProps) {
@@ -254,16 +256,21 @@ export default function TeamsTab({
                 <AppButton className="link-btn" type="button" onClick={() => onOpenTeamEdit(team.id)}>
                   Состав
                 </AppButton>
-                {!team.curatorId && curatorEditTeamId !== team.id && (
+                {curatorEditTeamId !== team.id && (
                   <AppButton
                     className="link-btn"
                     type="button"
                     onClick={() => {
-                      setCuratorDraftByTeam((prev) => ({ ...prev, [team.id]: prev[team.id] || "" }));
+                      setCuratorDraftByTeam((prev) => ({ ...prev, [team.id]: prev[team.id] || (team.curatorId ? String(team.curatorId) : "") }));
                       setCuratorEditTeamId(team.id);
                     }}
                   >
-                    Назначить куратора
+                    {team.curatorId ? "Сменить куратора" : "Назначить куратора"}
+                  </AppButton>
+                )}
+                {team.curatorId && curatorEditTeamId !== team.id && (
+                  <AppButton className="danger-outline" type="button" onClick={() => onClearTeamCurator(team.id)}>
+                    Убрать куратора
                   </AppButton>
                 )}
                 <AppButton
