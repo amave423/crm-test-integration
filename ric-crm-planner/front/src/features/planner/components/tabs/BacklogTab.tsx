@@ -1,4 +1,4 @@
-﻿import type { Dispatch, SetStateAction } from "react";
+import type { Dispatch, SetStateAction } from "react";
 import { DateRangeField } from "../../../../components/UI/DateField";
 import type { PlannerParentTask, PlannerSubtask } from "../../../../types/planner";
 import type { ParentEditDraft, SubtaskEditDraft } from "../../planner.types";
@@ -66,6 +66,14 @@ const getSubtaskAssignee = (subtask: PlannerSubtask, displayAssigneeLabel: (id: 
   if (subtask.assigneeId) return formatAssigneeName(displayAssigneeLabel(subtask.assigneeId));
   return subtask.role || "Не назначен";
 };
+
+function formatBacklogDate(value?: string) {
+  if (!value) return "-";
+  const [datePart] = value.split("T");
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(datePart);
+  if (!match) return value;
+  return `${match[3]}-${match[2]}-${match[1]}`;
+}
 
 export default function BacklogTab({
   activeTeamName,
@@ -248,8 +256,8 @@ export default function BacklogTab({
                     <>
                       <div className="backlog-sheet-parent__title">{parent.title}</div>
                       <div className="backlog-sheet-parent__meta">
-                        <span>Старт: {parent.startDate || "-"}</span>
-                        <span>Финиш: {parent.endDate || "-"}</span>
+                        <span>Старт: {formatBacklogDate(parent.startDate)}</span>
+                        <span>Финиш: {formatBacklogDate(parent.endDate)}</span>
                         <span>В спринте: {parentSprintCount}/{parentSubtasks.length}</span>
                         <span>Ответственный: {parent.assigneeId ? formatAssigneeName(displayAssigneeLabel(parent.assigneeId)) : "Не назначен"}</span>
                       </div>
@@ -292,7 +300,7 @@ export default function BacklogTab({
                           <>
                             <div className="backlog-subtask-title">{subtask.title}</div>
                             <div className="backlog-subtask-meta">
-                              <span>{subtask.startDate} - {subtask.endDate}</span>
+                              <span>{formatBacklogDate(subtask.startDate)} - {formatBacklogDate(subtask.endDate)}</span>
                               <span>{assigneeLabel}</span>
                               <span>{subtask.status}</span>
                               {subtask.inSprint && <span>в спринте</span>}

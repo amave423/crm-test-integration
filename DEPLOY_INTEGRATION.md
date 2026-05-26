@@ -20,8 +20,16 @@ Required values:
 
 ## 2. Start services
 
+Production CRM + testing module:
+
 ```bash
 docker compose up -d --build
+```
+
+Local CRM + testing module, without HTTPS and without hosts file:
+
+```bash
+docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
 ```
 
 The compose file starts:
@@ -43,7 +51,7 @@ docker compose exec backend python manage.py createsuperuser
 ## 4. Open services
 
 - CRM: `https://$APP_DOMAIN`
-- Testing module: `https://$TESTING_DOMAIN`
+- Testing module: `https://$TESTING_DOMAIN` in production, `http://testing.localhost` locally
 
 ## 5. SSO flow
 
