@@ -256,7 +256,7 @@ export default function TeamsTab({
                 <AppButton className="link-btn" type="button" onClick={() => onOpenTeamEdit(team.id)}>
                   Состав
                 </AppButton>
-                {curatorEditTeamId !== team.id && (
+                {!team.confirmed && curatorEditTeamId !== team.id && (
                   <AppButton
                     className="link-btn"
                     type="button"
@@ -268,7 +268,7 @@ export default function TeamsTab({
                     {team.curatorId ? "Сменить куратора" : "Назначить куратора"}
                   </AppButton>
                 )}
-                {team.curatorId && curatorEditTeamId !== team.id && (
+                {!team.confirmed && team.curatorId && curatorEditTeamId !== team.id && (
                   <AppButton className="danger-outline" type="button" onClick={() => onClearTeamCurator(team.id)}>
                     Убрать куратора
                   </AppButton>
