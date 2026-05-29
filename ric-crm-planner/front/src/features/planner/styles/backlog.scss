@@ -665,3 +665,517 @@
     max-width: none;
   }
 }
+
+/* nested backlog tree */
+.backlog-tree {
+  gap: 10px;
+}
+
+.backlog-tree-node {
+  transition: border-color 0.14s ease, box-shadow 0.14s ease, background 0.14s ease;
+}
+
+.backlog-tree-node:hover {
+  border-color: #bfdbfe;
+  box-shadow: 0 10px 22px rgba(15, 23, 42, 0.055);
+}
+
+.backlog-tree-node.is-active {
+  border-color: #2563eb;
+  background: #fbfdff;
+  box-shadow: 0 12px 24px rgba(37, 99, 235, 0.09);
+}
+
+.backlog-tree-summary {
+  align-items: center;
+  min-height: 58px;
+}
+
+.backlog-tree-summary::before {
+  content: none;
+  display: none;
+}
+
+.backlog-tree-summary-main {
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.backlog-tree-toggle {
+  width: 32px;
+  height: 32px;
+  border: 0;
+  border-radius: 10px;
+  background: #eef4ff;
+  color: #2563eb;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  font-size: 18px;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  transition: background 0.12s ease, color 0.12s ease, transform 0.12s ease;
+}
+
+.backlog-tree-toggle:hover,
+.backlog-tree-toggle:focus {
+  background: #dbeafe;
+  color: #1d4ed8;
+}
+
+.backlog-tree-title {
+  min-width: min(280px, 100%);
+  flex: 1 1 320px;
+  overflow: hidden;
+  color: #0f172a;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backlog-tree-actions {
+  flex-wrap: wrap;
+  justify-content: flex-end;
+  align-items: center;
+  max-width: 430px;
+}
+
+.backlog-tree-actions .app-button.ant-btn,
+.backlog-nested-row .app-button.ant-btn {
+  min-height: 34px;
+  padding: 6px 10px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+
+.backlog-tree-actions .link-btn.edit,
+.backlog-nested-row .link-btn.edit {
+  border-color: #93c5fd !important;
+  color: #1d4ed8 !important;
+}
+
+.backlog-tree-actions .link-btn.save,
+.backlog-nested-row .link-btn.save {
+  border-color: #86efac !important;
+  color: #15803d !important;
+}
+
+.backlog-tree-actions .link-btn.cancel,
+.backlog-nested-row .link-btn.cancel {
+  border-color: #cbd5e1 !important;
+  color: #64748b !important;
+}
+
+.backlog-tree-content {
+  background: #fff;
+}
+
+.backlog-tree-parent-editor {
+  padding: 10px;
+  border: 1px dashed #bfdbfe;
+  border-radius: 12px;
+  background: #f8fbff;
+}
+
+.backlog-nested-list {
+  display: grid;
+  gap: 8px;
+}
+
+.backlog-nested-row {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: start;
+  padding: 10px 12px;
+  border: 1px solid #e5e7eb;
+  border-left: 4px solid #cbd5e1;
+  border-radius: 12px;
+  background: #fff;
+}
+
+.backlog-nested-row.is-in-sprint {
+  border-left-color: #10b981;
+}
+
+.backlog-nested-row__main,
+.backlog-nested-row__editor {
+  min-width: 0;
+}
+
+.backlog-nested-row__title {
+  min-width: 0;
+  margin-bottom: 8px;
+  overflow: hidden;
+  color: #111827;
+  font-size: 16px;
+  font-weight: 650;
+  line-height: 1.25;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backlog-nested-row__meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  color: #374151;
+  font-size: 13px;
+}
+
+.backlog-nested-row__meta span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 30px;
+  max-width: 100%;
+  overflow: hidden;
+  border: 1px solid #eef2f7;
+  border-radius: 999px;
+  background: #f8fafc;
+  padding: 5px 9px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.backlog-nested-row__meta .is-sprint {
+  border-color: #bbf7d0;
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.backlog-nested-row .backlog-subtask-actions {
+  justify-content: flex-end;
+}
+
+.backlog-tree-create-node {
+  border-style: dashed;
+  background: #f8fafc;
+}
+
+.backlog-tree-create-head {
+  cursor: default;
+}
+
+.backlog-tree-create-content {
+  display: grid;
+  grid-template-columns: minmax(260px, 0.42fr) minmax(0, 0.58fr);
+  gap: 12px;
+}
+
+.backlog-tree-create-content .backlog-sheet-parent--new {
+  padding: 0;
+}
+
+.backlog-tree-create-subtask {
+  grid-template-columns: minmax(230px, 0.36fr) minmax(0, 0.64fr);
+}
+
+@media (max-width: 1180px) {
+  .backlog-tree-summary,
+  .backlog-nested-row,
+  .backlog-tree-create-content,
+  .backlog-tree-create-subtask {
+    grid-template-columns: 1fr;
+  }
+
+  .backlog-tree-summary {
+    display: grid;
+    grid-template-columns: auto minmax(0, 1fr);
+    align-items: center;
+  }
+
+  .backlog-tree-actions,
+  .backlog-nested-row .backlog-subtask-actions {
+    justify-content: flex-start;
+    max-width: none;
+  }
+}
+
+@media (max-width: 768px) {
+  body .backlog-tree-summary {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  body .backlog-tree-actions {
+    grid-column: 1 / -1;
+  }
+
+  body .backlog-tree-title,
+  body .backlog-nested-row__title {
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  body .backlog-tree-actions,
+  body .backlog-nested-row .backlog-subtask-actions {
+    display: grid;
+    width: 100%;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+
+  body .backlog-tree-actions .app-button.ant-btn,
+  body .backlog-nested-row .app-button.ant-btn {
+    width: 100%;
+    min-width: 0;
+  }
+
+  body .backlog-nested-row__meta {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  body .backlog-nested-row__meta span {
+    width: 100%;
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+}
+
+@media (max-width: 430px) {
+  body .backlog-tree-actions,
+  body .backlog-nested-row .backlog-subtask-actions {
+    grid-template-columns: 1fr;
+  }
+}
+
+/* backlog form compact alignment overrides */
+.backlog-edit-form--parent,
+.backlog-sheet-parent--new {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  align-items: center;
+}
+
+.backlog-edit-form--parent > :first-child,
+.backlog-sheet-parent--new > :first-child,
+.backlog-sheet-parent--new > .backlog-save-btn {
+  grid-column: 1 / -1;
+}
+
+.backlog-edit-form--parent .app-select.ant-select,
+.backlog-edit-form--parent .app-date-range-field,
+.backlog-sheet-parent--new .app-select.ant-select,
+.backlog-sheet-parent--new .app-date-range-field,
+.backlog-subtask-edit .app-select.ant-select,
+.backlog-subtask-edit .app-date-range-field,
+.backlog-subtask-create-meta .app-select.ant-select,
+.backlog-subtask-create-meta .app-date-range-field {
+  min-width: 0;
+  width: 100%;
+}
+
+.backlog-nested-row {
+  align-items: center;
+}
+
+.backlog-nested-row__editor.backlog-subtask-edit,
+.backlog-subtask-edit {
+  grid-template-columns: minmax(260px, 1fr) minmax(180px, 230px) minmax(260px, 330px) minmax(128px, max-content);
+}
+
+.backlog-subtask-create-meta {
+  grid-template-columns: minmax(180px, 240px) minmax(260px, 340px) minmax(128px, max-content) minmax(112px, max-content);
+}
+
+.backlog-sprint-toggle {
+  width: 128px;
+  max-width: 128px;
+}
+
+.backlog-sprint-toggle span {
+  overflow: visible;
+  text-overflow: clip;
+}
+
+.backlog-subtask-create-date .app-date-picker.ant-picker--range,
+.backlog-subtask-edit .app-date-picker.ant-picker--range,
+.backlog-edit-form--parent .app-date-picker.ant-picker--range,
+.backlog-sheet-parent--new .app-date-picker.ant-picker--range {
+  min-width: 0;
+  padding-left: 10px;
+  padding-right: 10px;
+}
+
+@media (max-width: 1180px) {
+  .backlog-edit-form--parent,
+  .backlog-sheet-parent--new,
+  .backlog-nested-row__editor.backlog-subtask-edit,
+  .backlog-subtask-edit,
+  .backlog-subtask-create-meta {
+    grid-template-columns: 1fr;
+  }
+
+  .backlog-sprint-toggle {
+    width: 100%;
+    max-width: none;
+  }
+}
+
+/* backlog subtask edit action row */
+.backlog-nested-row.is-editing {
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
+}
+
+.backlog-nested-row.is-editing .backlog-subtask-edit {
+  grid-template-columns: minmax(220px, 1fr) minmax(160px, 210px) minmax(230px, 300px) minmax(128px, max-content);
+}
+
+.backlog-nested-row.is-editing .backlog-subtask-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: max-content;
+}
+
+.backlog-nested-row.is-editing .backlog-subtask-actions .app-button.ant-btn {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+@media (max-width: 1180px) {
+  .backlog-nested-row.is-editing,
+  .backlog-nested-row.is-editing .backlog-subtask-edit {
+    grid-template-columns: 1fr;
+  }
+
+  .backlog-nested-row.is-editing .backlog-subtask-actions {
+    justify-content: flex-start;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+/* force edited subtask controls and actions into one row */
+.backlog-nested-row.is-editing .backlog-subtask-edit {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.backlog-nested-row.is-editing .backlog-subtask-actions {
+  grid-column: 2;
+  grid-row: 1;
+  align-self: center;
+}
+
+@media (max-width: 1180px) {
+  .backlog-nested-row.is-editing .backlog-subtask-edit,
+  .backlog-nested-row.is-editing .backlog-subtask-actions {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
+/* keep read-only subtask content in one row */
+.backlog-nested-row:not(.is-editing) {
+  grid-template-columns: minmax(0, 1fr) max-content;
+  align-items: center;
+}
+
+.backlog-nested-row:not(.is-editing) .backlog-nested-row__main {
+  display: flex;
+  min-width: 0;
+  align-items: center;
+  gap: 10px;
+}
+
+.backlog-nested-row:not(.is-editing) .backlog-nested-row__title {
+  flex: 1 1 auto;
+  min-width: 220px;
+  margin-bottom: 0;
+}
+
+.backlog-nested-row:not(.is-editing) .backlog-nested-row__meta {
+  flex: 0 0 auto;
+  flex-wrap: nowrap;
+  align-items: center;
+}
+
+.backlog-nested-row:not(.is-editing) .backlog-nested-row__meta span {
+  min-height: 30px;
+}
+
+.backlog-nested-row:not(.is-editing) .backlog-subtask-actions {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  justify-content: flex-end;
+  min-width: max-content;
+}
+
+@media (max-width: 1180px) {
+  .backlog-nested-row:not(.is-editing),
+  .backlog-nested-row:not(.is-editing) .backlog-nested-row__main,
+  .backlog-nested-row:not(.is-editing) .backlog-nested-row__meta {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .backlog-nested-row:not(.is-editing) .backlog-nested-row__title {
+    min-width: 0;
+    white-space: normal;
+  }
+
+  .backlog-nested-row:not(.is-editing) .backlog-subtask-actions {
+    justify-content: flex-start;
+    min-width: 0;
+    width: 100%;
+  }
+}
+
+/* align read-only subtasks by columns */
+.backlog-nested-row:not(.is-editing) .backlog-nested-row__main {
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) 170px 128px 112px 96px;
+  align-items: center;
+  gap: 10px;
+}
+
+.backlog-nested-row:not(.is-editing) .backlog-nested-row__title {
+  min-width: 0;
+  margin-bottom: 0;
+}
+
+.backlog-nested-row:not(.is-editing) .backlog-nested-row__meta {
+  display: contents;
+}
+
+.backlog-nested-row:not(.is-editing) .backlog-nested-row__meta span {
+  width: 100%;
+  min-width: 0;
+  justify-content: center;
+}
+
+.backlog-nested-row:not(.is-editing) .backlog-nested-row__meta span:nth-child(2) {
+  justify-content: flex-start;
+}
+
+@media (max-width: 1180px) {
+  .backlog-nested-row:not(.is-editing) .backlog-nested-row__main,
+  .backlog-nested-row:not(.is-editing) .backlog-nested-row__meta {
+    display: grid;
+    grid-template-columns: 1fr;
+  }
+
+  .backlog-nested-row:not(.is-editing) .backlog-nested-row__meta span {
+    justify-content: flex-start;
+  }
+}
+
+/* mobile backlog no left inset */
+@media (max-width: 768px) {
+  body .backlog-tree-content {
+    margin-left: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  body .backlog-nested-list,
+  body .backlog-nested-row {
+    margin-left: 0;
+  }
+}
+

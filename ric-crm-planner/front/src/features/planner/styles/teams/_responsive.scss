@@ -55,3 +55,32 @@
     grid-template-columns: 1fr;
   }
 }
+
+/* mobile teams spacing and ordering */
+@media (max-width: 1180px) {
+  .teams-panel--builder,
+  .teams-panel--selection,
+  .teams-panel--created {
+    grid-column: auto;
+    grid-row: auto;
+  }
+}
+
+@media (max-width: 900px) {
+  .teams-panel .planner-source-content {
+    margin-left: 0;
+    padding-left: 0;
+    padding-right: 0;
+  }
+
+  .teams-panel .planner-members-list,
+  .teams-panel .planner-selected-list {
+    margin-left: 0;
+  }
+
+  .teams-panel .planner-applicant-row--header {
+    padding-left: 0;
+    padding-right: 0;
+  }
+}
+

@@ -274,6 +274,7 @@
 .planner-source-content {
   border-top: 1px solid #eaf0f7;
   padding: 10px 12px 12px;
+  margin-left: 60px;
   display: flex;
   flex-direction: column;
   gap: 10px;
@@ -290,5 +291,32 @@
 
 .planner-source-node--disabled .planner-source-summary-main {
   color: #475569;
+}
+
+.teams-panel--builder {
+  grid-column: 1;
+  grid-row: 1;
+}
+
+.teams-panel--selection {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+}
+
+.teams-panel--created {
+  grid-column: 1;
+  grid-row: 2;
+}
+
+.teams-panel--created .teams-created-block {
+  margin-top: 0;
+  padding-top: 0;
+  border-top: 0;
+}
+
+.teams-layout--single .teams-panel--created,
+.teams-layout--single .teams-panel--selection {
+  grid-column: auto;
+  grid-row: auto;
 }
 

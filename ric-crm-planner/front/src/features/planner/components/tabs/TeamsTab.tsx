@@ -532,11 +532,17 @@ export default function TeamsTab({
             )}
           </div>
 
-          {renderCreatedTeams()}
         </section>
       )}
 
-      {isOrganizer ? renderSelectedPanel() : <section className="planner-card teams-panel teams-panel--created">{renderCreatedTeams()}</section>}
+      {isOrganizer ? (
+        <>
+          {renderSelectedPanel()}
+          <section className="planner-card teams-panel teams-panel--created">{renderCreatedTeams()}</section>
+        </>
+      ) : (
+        <section className="planner-card teams-panel teams-panel--created">{renderCreatedTeams()}</section>
+      )}
     </div>
   );
 }
