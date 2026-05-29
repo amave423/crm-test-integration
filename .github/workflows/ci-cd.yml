@@ -19,7 +19,7 @@ permissions:
 
 env:
   APP_DOMAIN: meetuppoint.ru
-  TESTING_DOMAIN: tests.meetuppoint.ru
+  TESTING_DOMAIN: test.meetuppoint.ru
   VITE_API_BASE: ""
   VITE_USE_MOCK: "false"
   DJANGO_DEBUG: "0"
@@ -27,15 +27,15 @@ env:
   DJANGO_ALLOWED_HOSTS: meetuppoint.ru,5.181.108.146,localhost,127.0.0.1,backend
   DJANGO_CSRF_TRUSTED_ORIGINS: https://meetuppoint.ru
   DJANGO_CORS_ALLOW_ALL_ORIGINS: "0"
-  DJANGO_CORS_ALLOWED_ORIGINS: https://meetuppoint.ru,https://tests.meetuppoint.ru
+  DJANGO_CORS_ALLOWED_ORIGINS: https://meetuppoint.ru,https://test.meetuppoint.ru
   DJANGO_CACHE_DIR: /app/.cache
   DB_NAME: crm_bd
   DB_USER: crm_user
   DB_PASSWORD: ci-only-crm-db-password
   DB_HOST: db
   DB_PORT: "5432"
-  TESTING_DOMAIN_URL: https://tests.meetuppoint.ru
-  TESTING_SERVICE_URL: https://tests.meetuppoint.ru
+  TESTING_DOMAIN_URL: https://test.meetuppoint.ru
+  TESTING_SERVICE_URL: https://test.meetuppoint.ru
   TESTING_SERVICE_TOKEN: ci-only-shared-service-token
   TESTING_SSO_TICKET_TTL_SECONDS: "300"
   TESTING_DB_NAME: test_constructor

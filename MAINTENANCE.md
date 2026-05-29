@@ -247,7 +247,7 @@ docker compose -f docker-compose.prod.yml up -d
 
 ```bash
 nslookup meetuppoint.ru
-nslookup tests.meetuppoint.ru
+nslookup test.meetuppoint.ru
 ```
 
 Оба домена должны возвращать IP VPS:

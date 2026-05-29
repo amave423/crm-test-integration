@@ -32,7 +32,7 @@ meetuppoint.ru
 Домен модуля тестирования:
 
 ```text
-tests.meetuppoint.ru
+test.meetuppoint.ru
 ```
 
 IP VPS:
@@ -45,10 +45,10 @@ DNS должен указывать оба домена на VPS:
 
 ```text
 meetuppoint.ru        -> 5.181.108.146
-tests.meetuppoint.ru  -> 5.181.108.146
+test.meetuppoint.ru  -> 5.181.108.146
 ```
 
-Если `tests.meetuppoint.ru` не создан, модуль тестирования по отдельному адресу не откроется.
+Если `test.meetuppoint.ru` не создан, модуль тестирования по отдельному адресу не откроется.
 
 ## 3. Файлы compose
 
@@ -119,19 +119,19 @@ nano .env
 
 ```env
 APP_DOMAIN=meetuppoint.ru
-TESTING_DOMAIN=tests.meetuppoint.ru
+TESTING_DOMAIN=test.meetuppoint.ru
 
 VITE_API_BASE=
 VITE_USE_MOCK=false
-VITE_TESTING_URL=https://tests.meetuppoint.ru
+VITE_TESTING_URL=https://test.meetuppoint.ru
 
 DJANGO_DEBUG=0
 DJANGO_ALLOWED_HOSTS=meetuppoint.ru,5.181.108.146,localhost,127.0.0.1,backend
 DJANGO_CSRF_TRUSTED_ORIGINS=https://meetuppoint.ru
 DJANGO_CORS_ALLOW_ALL_ORIGINS=0
-DJANGO_CORS_ALLOWED_ORIGINS=https://meetuppoint.ru,https://tests.meetuppoint.ru
+DJANGO_CORS_ALLOWED_ORIGINS=https://meetuppoint.ru,https://test.meetuppoint.ru
 
-TESTING_SERVICE_URL=https://tests.meetuppoint.ru
+TESTING_SERVICE_URL=https://test.meetuppoint.ru
 VK_CHAT_LINK_BASE_URL=https://meetuppoint.ru
 VK_BOT_FRONTEND_URL=https://meetuppoint.ru
 ```
@@ -309,7 +309,7 @@ http://localhost
 
 ```bash
 nslookup meetuppoint.ru
-nslookup tests.meetuppoint.ru
+nslookup test.meetuppoint.ru
 ```
 
 Оба домена должны возвращать:
