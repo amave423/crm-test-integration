@@ -1,6 +1,7 @@
-﻿export type RequestAutomationEventCode =
+export type RequestAutomationEventCode =
   | "application.created"
   | "request.status_changed"
+  | "enrollment.closed"
   | "testing.started"
   | "testing.completed"
   | "notification.chat_link_opened"

@@ -1,4 +1,5 @@
 from datetime import timedelta
+from unittest.mock import patch
 
 from django.contrib.auth import get_user_model
 from django.contrib.contenttypes.models import ContentType
@@ -337,6 +338,35 @@ class CRMContractTests(TestCase):
         self.assertEqual(result["changed"], 1)
         application.refresh_from_db()
         self.assertEqual(application.status.name, failed_status.name)
+
+
+    @patch("users.automation_engine.send_planner_invite")
+    def test_enrollment_closed_trigger_runs_planner_invite_robot(self, send_planner_invite_mock):
+        enrollment_closed_status = Status.objects.get_or_create(name="Набор завершён")[0]
+        joined_status = Status.objects.get_or_create(name="Добавился в орг. чат")[0]
+        application = Application.objects.create(
+            user=self.projectant,
+            event=self.event,
+            direction=self.direction,
+            message="Ready",
+            date_sub=timezone.now(),
+            date_end=self.event.end_app_date,
+            status=enrollment_closed_status,
+        )
+
+        result = run_crm_automation(application, "enrollment.closed", previous_status=joined_status.name)
+
+        self.assertGreaterEqual(result["changed"], 1)
+        send_planner_invite_mock.assert_called_once()
+        self.assertTrue(
+            CRMAutomationExecutionLog.objects.filter(
+                application=application,
+                event_code="enrollment.closed",
+                rule_kind="trigger",
+                rule_id="crm-enrollment-closed",
+                status=CRMAutomationExecutionLog.STATUS_SUCCESS,
+            ).exists()
+        )
 
     def test_crm_chat_link_opened_trigger_does_not_revert_joined_status_from_legacy_config(self):
         sent_status = Status.objects.get_or_create(name="Отправлена ссылка на орг. чат")[0]

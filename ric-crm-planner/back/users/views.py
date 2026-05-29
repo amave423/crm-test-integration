@@ -1116,6 +1116,13 @@ class ApplicationDetailView(RetrieveUpdateDestroyAPIView):
                 previous_status=previous_status,
                 request=self.request,
             )
+        if current_status == "Набор завершён":
+            run_crm_automation(
+                instance,
+                "enrollment.closed",
+                previous_status=previous_status,
+                request=self.request,
+            )
 
     def get_queryset(self):
         queryset = Application.objects.select_related(
@@ -1550,6 +1557,13 @@ class IntegrationApplicationStatusView(IntegrationApplicationMixin, APIView):
                 previous_status=previous_status,
                 request=request,
             )
+            if status_obj.name == "Набор завершён":
+                run_crm_automation(
+                    application,
+                    "enrollment.closed",
+                    previous_status=previous_status,
+                    request=request,
+                )
 
         return Response(ApplicationSerializer(application, context={"request": request}).data, status=status.HTTP_200_OK)
 

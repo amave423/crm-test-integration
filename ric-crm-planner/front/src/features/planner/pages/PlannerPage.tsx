@@ -1,4 +1,4 @@
-﻿import { useContext, useEffect, useMemo, useRef, useState } from "react";
+import { useContext, useEffect, useMemo, useRef, useState } from "react";
 import { Modal as AntModal } from "antd";
 import {
   buildParticipantsFromRequests,
@@ -7,7 +7,8 @@ import {
   savePlannerState,
   syncParticipants,
 } from "../api/planner";
-import { getRequests } from "../../requests/api/requests";
+import { getRequests, updateRequestStatus } from "../../requests/api/requests";
+import { REQUEST_STATUS } from "../../../constants/requestProgress";
 import { updateProjectCurator } from "../../events/api/projects";
 import { useToast } from "../../../components/Toast/ToastProvider";
 import PageLoader from "../../../components/Loading/PageLoader";
@@ -482,8 +483,8 @@ export default function PlannerPage() {
     notifySuccess("Команда удалена");
   };
 
-  const snapshotParticipants = (closedEventIds = state.closedEventIds) =>
-    buildParticipantsFromRequests(users, requests, closedEventIds);
+  const snapshotParticipants = (closedEventIds = state.closedEventIds, sourceRequests = requests) =>
+    buildParticipantsFromRequests(users, sourceRequests, closedEventIds);
 
   const projectApplicantGroups = useMemo(
     () =>
@@ -807,14 +808,48 @@ export default function PlannerPage() {
     if (!closeEnrollmentTarget) return;
     const eventId = closeEnrollmentTarget.eventId;
     const eventTitle = closeEnrollmentTarget.eventTitle;
+    const nextClosedEventIds = Array.from(new Set([...state.closedEventIds, eventId]));
+    const statusEquals = (status: string | undefined, target: string) =>
+      String(status || "").trim().toLowerCase() === target.toLowerCase();
+    const inviteTargets = requests.filter(
+      (request) => Number(request.eventId) === Number(eventId) && statusEquals(request.status, REQUEST_STATUS.JOINED_CHAT)
+    );
+    let nextRequests = requests;
+
+    if (inviteTargets.length > 0) {
+      const results = await Promise.allSettled(
+        inviteTargets.map((request) => updateRequestStatus(request.id, REQUEST_STATUS.ENROLLMENT_CLOSED))
+      );
+      const updatedById = new Map<number, Request>();
+
+      results.forEach((result) => {
+        if (result.status === "fulfilled" && result.value) {
+          updatedById.set(Number(result.value.id), result.value);
+        }
+      });
+
+      nextRequests = requests.map((request) => updatedById.get(Number(request.id)) ?? request);
+      setRequests(nextRequests);
+
+      const failedCount = results.filter((result) => result.status === "rejected").length;
+      if (failedCount > 0) {
+        notifyError(`Не удалось отправить приглашения для ${failedCount} заявок. Повторите завершение набора.`);
+        return;
+      }
+    }
+
     setState((prev) => ({
       ...prev,
       enrollmentClosed: true,
-      closedEventIds: Array.from(new Set([...prev.closedEventIds, eventId])),
-      participants: snapshotParticipants(Array.from(new Set([...prev.closedEventIds, eventId]))),
+      closedEventIds: nextClosedEventIds,
+      participants: snapshotParticipants(nextClosedEventIds, nextRequests),
     }));
     setCloseEnrollmentTarget(null);
-    notifySuccess(`Набор по мероприятию «${eventTitle}» завершён`);
+    notifySuccess(
+      inviteTargets.length > 0
+        ? `Набор по мероприятию «${eventTitle}» завершён, приглашения отправлены`
+        : `Набор по мероприятию «${eventTitle}» завершён`
+    );
   };
 
   const toggleEventVisibility = (eventId: number, enabled: boolean) => {
@@ -1198,7 +1233,6 @@ export default function PlannerPage() {
     </div>
   );
 }
-
 
 
 

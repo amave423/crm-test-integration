@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   AutomationAttachment,
   AutomationCommonSettings,
   AutomationConditionGroup,
@@ -126,7 +126,9 @@ function normalizeRobot(robot: AutomationRobot, fallbackStageId: string): Automa
   const stageId =
     (id === "crm-send-chat-link" || id === "request-send-chat-link") && robot.stageId === "application-joined-chat"
       ? "application-chat-link-sent"
-      : String(robot.stageId || fallbackStageId);
+      : id === "crm-send-planner-invite"
+        ? "application-enrollment-closed"
+        : String(robot.stageId || fallbackStageId);
 
   const action = String(robot.action || "notification.organizer");
 
@@ -138,7 +140,7 @@ function normalizeRobot(robot: AutomationRobot, fallbackStageId: string): Automa
     action: action === "message.vk_interactive" ? "message.vk" : action,
     targetStageId: String(robot.targetStageId || fallbackStageId),
     targetStatus: String(robot.targetStatus || ""),
-    enabled: Boolean(robot.enabled),
+    enabled: id === "crm-send-planner-invite" ? true : Boolean(robot.enabled),
     deleted: Boolean(robot.deleted),
     settings: normalizeSettings(robot.settings),
     subject: String(robot.subject || robot.title || "Уведомление"),
@@ -152,11 +154,15 @@ function normalizeTrigger(trigger: AutomationTrigger, fallbackStageId: string): 
   const stageId =
     (id === "crm-chat-link-opened" || id === "request-chat-link-opened") && trigger.stageId === "application-chat-link-sent"
       ? "application-joined-chat"
-      : String(trigger.stageId || fallbackStageId);
+      : id === "crm-enrollment-closed" || id === "request-enrollment-closed" || trigger.eventCode === "enrollment.closed"
+        ? "application-enrollment-closed"
+        : String(trigger.stageId || fallbackStageId);
   const targetStageId =
     id === "crm-chat-link-opened" || id === "request-chat-link-opened"
       ? "application-joined-chat"
-      : String(trigger.targetStageId || fallbackStageId);
+      : id === "crm-enrollment-closed" || id === "request-enrollment-closed" || trigger.eventCode === "enrollment.closed"
+        ? "application-enrollment-closed"
+        : String(trigger.targetStageId || fallbackStageId);
 
   return {
     id,

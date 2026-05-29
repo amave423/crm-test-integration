@@ -24,10 +24,17 @@ logger = logging.getLogger(__name__)
 PLANNER_INVITE_PAYLOAD_TYPE = "planner_invite"
 CHAT_JOIN_ACTION_TYPES = {"chat_invite_user", "chat_invite_user_by_link"}
 JOINED_CHAT_STATUS_NAME = "Добавился в орг. чат"
+ENROLLMENT_CLOSED_STATUS_NAME = "Набор завершён"
 STARTED_PSH_STATUS_NAME = "Приступил к ПШ"
 DECLINED_PSH_STATUS_NAME = "Отказался от ПШ"
 REMOVED_FROM_PSH_STATUS_NAME = "Удален с ПШ"
-PLANNER_INVITE_ACCEPT_ALLOWED_STATUSES = {JOINED_CHAT_STATUS_NAME, DECLINED_PSH_STATUS_NAME, REMOVED_FROM_PSH_STATUS_NAME}
+PLANNER_INVITE_ACCEPT_ALLOWED_STATUSES = {
+    JOINED_CHAT_STATUS_NAME,
+    ENROLLMENT_CLOSED_STATUS_NAME,
+    DECLINED_PSH_STATUS_NAME,
+    REMOVED_FROM_PSH_STATUS_NAME,
+}
+PLANNER_INVITE_DECLINE_ALLOWED_STATUSES = {JOINED_CHAT_STATUS_NAME, ENROLLMENT_CLOSED_STATUS_NAME}
 START_COMMANDS = {"начать", "start", "/start", "старт"}
 PEER_COMMANDS = {"peer", "/peer", "peer_id", "/peer_id"}
 
@@ -159,7 +166,7 @@ def send_planner_invites_for_event(
     if recipient_mode == "declined":
         applications = applications.filter(status__name__in=[DECLINED_PSH_STATUS_NAME, REMOVED_FROM_PSH_STATUS_NAME])
     elif recipient_mode == "joined":
-        applications = applications.filter(status__name=JOINED_CHAT_STATUS_NAME)
+        applications = applications.filter(status__name__in=[JOINED_CHAT_STATUS_NAME, ENROLLMENT_CLOSED_STATUS_NAME])
 
     result = {"sent": 0, "failed": 0, "skipped": 0}
     for application in applications:
@@ -430,8 +437,7 @@ def accept_planner_invite(application: Application, vk_user_id: int) -> str:
             user_id=vk_user_id,
             message=(
                 f"Не удалось подтвердить участие: текущий статус заявки «{current_status}». "
-                f"Подтверждение доступно только после статуса «{JOINED_CHAT_STATUS_NAME}» "
-                f"или для повторного приглашения после статуса «{DECLINED_PSH_STATUS_NAME}»."
+                "Подтверждение доступно после завершения набора или повторного приглашения."
             ),
         )
         return "Статус заявки не позволяет подтвердить участие"
@@ -443,6 +449,9 @@ def accept_planner_invite(application: Application, vk_user_id: int) -> str:
     )
     locked_application.status = started_status
     locked_application.save(update_fields=["status"])
+    from users.automation_engine import run_crm_automation
+
+    run_crm_automation(locked_application, "request.status_changed", previous_status=current_status)
     send_vk_message(
         user_id=vk_user_id,
         message="Готовность подтверждена. Статус заявки изменён на «Приступил к ПШ».",
@@ -458,12 +467,12 @@ def decline_planner_invite(application: Application, vk_user_id: int) -> str:
         return "Отказ уже зафиксирован"
 
     current_status = locked_application.status.name if locked_application.status_id else "без статуса"
-    if current_status != JOINED_CHAT_STATUS_NAME:
+    if current_status not in PLANNER_INVITE_DECLINE_ALLOWED_STATUSES:
         send_vk_message(
             user_id=vk_user_id,
             message=(
                 f"Не удалось отказаться от участия: текущий статус заявки «{current_status}». "
-                f"Отказ доступен только после статуса «{JOINED_CHAT_STATUS_NAME}»."
+                "Отказ доступен только после завершения набора."
             ),
         )
         return "Статус заявки не позволяет отказаться"
@@ -475,6 +484,9 @@ def decline_planner_invite(application: Application, vk_user_id: int) -> str:
     )
     locked_application.status = declined_status
     locked_application.save(update_fields=["status"])
+    from users.automation_engine import run_crm_automation
+
+    run_crm_automation(locked_application, "request.status_changed", previous_status=current_status)
     send_vk_message(
         user_id=vk_user_id,
         message="Отказ зафиксирован. Статус заявки изменён на «Отказался от ПШ».",

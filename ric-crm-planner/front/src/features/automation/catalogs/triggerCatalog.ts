@@ -1,4 +1,4 @@
-﻿import type { AutomationScope, CatalogGroup } from "../types";
+import type { AutomationScope, CatalogGroup } from "../types";
 
 export const TRIGGER_CATALOG: Record<AutomationScope, CatalogGroup[]> = {
   crm: [
@@ -34,6 +34,12 @@ export const TRIGGER_CATALOG: Record<AutomationScope, CatalogGroup[]> = {
           code: "request.status_changed",
           title: "Статус изменен",
           description: "Срабатывает при ручном изменении статуса заявки.",
+        },
+        {
+          code: "enrollment.closed",
+          title: "Набор завершён",
+          description: "Срабатывает, когда организатор завершает набор и заявка переходит к подтверждению участия.",
+          targetStageId: "application-enrollment-closed",
         },
         {
           code: "field.changed",
@@ -158,6 +164,12 @@ export const TRIGGER_CATALOG: Record<AutomationScope, CatalogGroup[]> = {
           code: "notification.chat_link_opened",
           title: "Переход по ссылке на орг.чат",
           description: "Срабатывает после перехода по индивидуальной ссылке.",
+        },
+        {
+          code: "enrollment.closed",
+          title: "Набор завершён",
+          description: "Срабатывает после завершения набора участников организатором.",
+          targetStageId: "application-enrollment-closed",
         },
       ],
     },

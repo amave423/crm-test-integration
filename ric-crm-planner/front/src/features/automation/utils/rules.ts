@@ -1,4 +1,4 @@
-﻿import type {
+import type {
   AutomationConditionOperator,
   AutomationConditionRule,
   AutomationConfig,
@@ -65,7 +65,7 @@ export function makeTrigger(stageId: string, item: CatalogItem): AutomationTrigg
     eventCode: item.code,
     enabled: true,
     settings: cloneDefaultSettings(),
-    targetStageId: stageId,
+    targetStageId: item.targetStageId || stageId,
     allowBackTransition: false,
   };
 }

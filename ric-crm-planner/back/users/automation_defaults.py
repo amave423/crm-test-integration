@@ -35,6 +35,11 @@ CRM_STAGES = [
         "description": "Проектант перешел в организационный чат мероприятия.",
     },
     {
+        "id": "application-enrollment-closed",
+        "title": "Набор завершён",
+        "description": "Набор участников завершен, проектант ожидает подтверждения участия в ПШ.",
+    },
+    {
         "id": "application-started",
         "title": "Приступил к ПШ",
         "description": "Проектант приступил к проектной школе.",
@@ -77,11 +82,11 @@ CRM_ROBOTS = [
     },
     {
         "id": "crm-send-planner-invite",
-        "stageId": "application-joined-chat",
+        "stageId": "application-enrollment-closed",
         "title": "Отправить VK-приглашение в планировщик",
         "description": "Отправляет проектанту VK-сообщение с кнопками принятия или отказа от участия в проектной школе.",
         "action": "planner.invite.vk",
-        "enabled": False,
+        "enabled": True,
         "settings": deepcopy(DEFAULT_AUTOMATION_SETTINGS),
         "subject": "Переход к работе в планировщике",
         "message": "Набор завершён. Подтвердите, готовы ли вы приступить к работе в планировщике.",
@@ -120,6 +125,17 @@ CRM_TRIGGERS = [
         "enabled": True,
         "settings": deepcopy(DEFAULT_AUTOMATION_SETTINGS),
         "targetStageId": "application-joined-chat",
+        "allowBackTransition": False,
+    },
+    {
+        "id": "crm-enrollment-closed",
+        "stageId": "application-enrollment-closed",
+        "title": "Набор завершён",
+        "description": "Срабатывает, когда организатор завершает набор участников по мероприятию.",
+        "eventCode": "enrollment.closed",
+        "enabled": True,
+        "settings": deepcopy(DEFAULT_AUTOMATION_SETTINGS),
+        "targetStageId": "application-enrollment-closed",
         "allowBackTransition": False,
     },
 ]

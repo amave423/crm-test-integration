@@ -130,6 +130,7 @@ class VKCRMNotificationTests(TestCase):
         self.testing_status = Status.objects.create(name="Прохождение тестирования")
         self.chat_link_sent_status = Status.objects.create(name="Отправлена ссылка на орг. чат")
         self.chat_joined_status = Status.objects.create(name="Добавился в орг. чат")
+        self.enrollment_closed_status = Status.objects.create(name="Набор завершён")
         self.application = Application.objects.create(
             user=self.user,
             event=self.event,
@@ -320,6 +321,18 @@ class VKCRMNotificationTests(TestCase):
         keyboard = send_vk_message_mock.call_args.kwargs["keyboard"]
         self.assertEqual(keyboard["buttons"][0][0]["action"]["type"], "callback")
 
+    @override_settings(VK_ENABLED=True)
+    @patch("integrations.vk.planner_invites.send_vk_message")
+    def test_send_planner_invites_for_event_sends_enrollment_closed_applications(self, send_vk_message_mock):
+        send_vk_message_mock.return_value = 10
+        self.application.status = self.enrollment_closed_status
+        self.application.save(update_fields=["status"])
+
+        result = send_planner_invites_for_event(self.event.id)
+
+        self.assertEqual(result, {"sent": 1, "failed": 0, "skipped": 0})
+        send_vk_message_mock.assert_called_once()
+
     @override_settings(VK_ENABLED=True, VK_CALLBACK_SECRET="")
     @patch("integrations.vk.views.handle_vk_message_event")
     def test_vk_message_event_callback_routes_to_handler(self, handle_event_mock):
@@ -444,7 +457,7 @@ class VKCRMNotificationTests(TestCase):
     @override_settings(VK_ENABLED=True, VK_CALLBACK_SECRET="")
     @patch("integrations.vk.planner_invites.send_vk_message")
     def test_vk_planner_invite_accept_callback_updates_application_status(self, send_vk_message_mock):
-        self.application.status = self.chat_joined_status
+        self.application.status = self.enrollment_closed_status
         self.application.save(update_fields=["status"])
         handle_planner_invite_payload(
             from_id=123456,
@@ -458,7 +471,7 @@ class VKCRMNotificationTests(TestCase):
     @override_settings(VK_ENABLED=True, VK_CALLBACK_SECRET="")
     @patch("integrations.vk.planner_invites.send_vk_message")
     def test_vk_planner_invite_decline_asks_confirmation(self, send_vk_message_mock):
-        self.application.status = self.chat_joined_status
+        self.application.status = self.enrollment_closed_status
         self.application.save(update_fields=["status"])
         handle_planner_invite_payload(
             from_id=123456,
@@ -466,14 +479,14 @@ class VKCRMNotificationTests(TestCase):
         )
 
         self.application.refresh_from_db()
-        self.assertEqual(self.application.status.name, "Добавился в орг. чат")
+        self.assertEqual(self.application.status.name, "Набор завершён")
         send_vk_message_mock.assert_called_once()
         self.assertIn("Вы уверены", send_vk_message_mock.call_args.kwargs["message"])
 
     @override_settings(VK_ENABLED=True, VK_CALLBACK_SECRET="")
     @patch("integrations.vk.planner_invites.send_vk_message")
     def test_vk_planner_invite_decline_confirm_updates_application_status(self, send_vk_message_mock):
-        self.application.status = self.chat_joined_status
+        self.application.status = self.enrollment_closed_status
         self.application.save(update_fields=["status"])
         handle_planner_invite_payload(
             from_id=123456,

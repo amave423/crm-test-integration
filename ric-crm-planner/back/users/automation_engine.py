@@ -61,6 +61,21 @@ def stable_fingerprint(value: Any) -> str:
 
 def normalize_crm_automation_config_dict(config: dict[str, Any]) -> dict[str, Any]:
     normalized = deepcopy(config)
+    defaults = create_default_crm_automation_config(to_int(normalized.get("eventId")) or 0)
+
+    for key in ("stages", "triggers", "robots"):
+        items = normalized.get(key) if isinstance(normalized.get(key), list) else []
+        default_items = defaults.get(key) if isinstance(defaults.get(key), list) else []
+        existing_ids = {
+            normalized_text(item.get("id"))
+            for item in items
+            if isinstance(item, dict) and normalized_text(item.get("id"))
+        }
+        for default_item in default_items:
+            default_id = normalized_text(default_item.get("id")) if isinstance(default_item, dict) else ""
+            if default_id and default_id not in existing_ids:
+                items.append(deepcopy(default_item))
+        normalized[key] = items
 
     robots = normalized.get("robots") if isinstance(normalized.get("robots"), list) else []
     for robot in robots:
@@ -73,7 +88,8 @@ def normalize_crm_automation_config_dict(config: dict[str, Any]) -> dict[str, An
         if robot_id in CHAT_LINK_ROBOT_IDS or (action == "chat.link.vk" and stage_id == "application-joined-chat"):
             robot["stageId"] = "application-chat-link-sent"
         if robot_id == "crm-send-planner-invite":
-            robot["stageId"] = "application-joined-chat"
+            robot["stageId"] = "application-enrollment-closed"
+            robot["enabled"] = True
 
     triggers = normalized.get("triggers") if isinstance(normalized.get("triggers"), list) else []
     for trigger in triggers:
@@ -85,6 +101,9 @@ def normalize_crm_automation_config_dict(config: dict[str, Any]) -> dict[str, An
         if trigger_id in CHAT_LINK_TRIGGER_IDS or event_code == "notification.chat_link_opened":
             trigger["stageId"] = "application-joined-chat"
             trigger["targetStageId"] = "application-joined-chat"
+        if trigger_id == "crm-enrollment-closed" or event_code == "enrollment.closed":
+            trigger["stageId"] = "application-enrollment-closed"
+            trigger["targetStageId"] = "application-enrollment-closed"
 
     return normalized
 
@@ -141,6 +160,7 @@ def target_status_for_stage(config: dict[str, Any], stage_id: str) -> str:
         "application-testing": "Прохождение тестирования",
         "application-chat-link-sent": "Отправлена ссылка на орг. чат",
         "application-joined-chat": "Добавился в орг. чат",
+        "application-enrollment-closed": "Набор завершён",
         "application-started": "Приступил к ПШ",
     }
     return fallback.get(stage_id, "")

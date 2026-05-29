@@ -97,6 +97,7 @@ function hasPlannerAccessStatus(status?: string) {
   const normalizedStatus = String(status || "").trim().toLowerCase();
   if (isNegativeRequestStatus(status)) return false;
   return (
+    normalizedStatus === REQUEST_STATUS.ENROLLMENT_CLOSED.toLowerCase() ||
     normalizedStatus === REQUEST_STATUS.STARTED.toLowerCase() ||
     normalizedStatus === REQUEST_STATUS.JOINED_CHAT.toLowerCase()
   );

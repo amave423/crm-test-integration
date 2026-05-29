@@ -1,4 +1,4 @@
-﻿import { REQUEST_STATUS } from "../../../constants/requestProgress";
+import { REQUEST_STATUS } from "../../../constants/requestProgress";
 import type {
   AutomationCommonSettings,
   AutomationRobot,
@@ -37,6 +37,11 @@ const APPLICATION_STAGES: AutomationStage[] = [
     id: "application-joined-chat",
     title: REQUEST_STATUS.JOINED_CHAT,
     description: "Проектант перешел в организационный чат мероприятия.",
+  },
+  {
+    id: "application-enrollment-closed",
+    title: REQUEST_STATUS.ENROLLMENT_CLOSED,
+    description: "Набор участников завершен, проектант ожидает подтверждения участия в ПШ.",
   },
   {
     id: "application-started",
@@ -110,6 +115,15 @@ export const ROBOT_TEMPLATES: Record<AutomationScope, Array<Omit<AutomationRobot
       action: "chat.link.vk",
       subject: "Ссылка на организационный чат",
       message: "Перейдите по ссылке и присоединитесь к организационному чату мероприятия.",
+    },
+    {
+      id: "crm-send-planner-invite",
+      stageId: "application-enrollment-closed",
+      title: "Отправить VK-приглашение в планировщик",
+      description: "Отправляет проектанту VK-сообщение с кнопками принятия или отказа от участия в проектной школе.",
+      action: "planner.invite.vk",
+      subject: "Переход к работе в планировщике",
+      message: "Набор завершён. Подтвердите, готовы ли вы приступить к работе в планировщике.",
     },
   ],
   planner: [
@@ -210,6 +224,14 @@ export const TRIGGER_TEMPLATES: Record<
       eventCode: "notification.chat_link_opened",
       targetStageId: "application-joined-chat",
     },
+    {
+      id: "crm-enrollment-closed",
+      stageId: "application-enrollment-closed",
+      title: "Набор завершён",
+      description: "Срабатывает, когда организатор завершает набор участников по мероприятию.",
+      eventCode: "enrollment.closed",
+      targetStageId: "application-enrollment-closed",
+    },
   ],
   planner: [
     {
@@ -277,6 +299,14 @@ export const TRIGGER_TEMPLATES: Record<
       description: "Когда проектант открыл ссылку на орг.чат, карточка переходит на стадию подтверждения.",
       eventCode: "notification.chat_link_opened",
       targetStageId: "application-joined-chat",
+    },
+    {
+      id: "request-enrollment-closed",
+      stageId: "application-enrollment-closed",
+      title: "Набор завершён",
+      description: "Срабатывает после завершения набора участников организатором.",
+      eventCode: "enrollment.closed",
+      targetStageId: "application-enrollment-closed",
     },
   ],
 };

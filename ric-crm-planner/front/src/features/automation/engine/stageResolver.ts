@@ -6,6 +6,7 @@ const REQUEST_STAGE_IDS = [
   "application-testing",
   "application-chat-link-sent",
   "application-joined-chat",
+  "application-enrollment-closed",
   "application-started",
 ] as const;
 
@@ -14,6 +15,7 @@ const STAGE_STATUS: Record<(typeof REQUEST_STAGE_IDS)[number], string> = {
   "application-testing": REQUEST_STATUS.TESTING,
   "application-chat-link-sent": REQUEST_STATUS.CHAT_LINK_SENT,
   "application-joined-chat": REQUEST_STATUS.JOINED_CHAT,
+  "application-enrollment-closed": REQUEST_STATUS.ENROLLMENT_CLOSED,
   "application-started": REQUEST_STATUS.STARTED,
 };
 

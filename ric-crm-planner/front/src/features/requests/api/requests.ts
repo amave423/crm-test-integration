@@ -25,21 +25,22 @@ type BackendStatus = {
   name: string;
 };
 
+function normalizeStatusKey(status: string) {
+  return status.trim().toLowerCase().replaceAll("ё", "е").replaceAll(".", "").replace(/\s+/g, " ");
+}
+
 const LEGACY_STATUS_MAP: Record<string, string> = {
-  "Прислал заявку": REQUEST_STATUS.SUBMITTED,
-  "Прохождение тестирования": REQUEST_STATUS.TESTING,
-  "Не перешёл к тестированию": REQUEST_STATUS.TESTING_NOT_STARTED,
-  "Не перешел к тестированию": REQUEST_STATUS.TESTING_NOT_STARTED,
-  "Не прошел тестирование": REQUEST_STATUS.TESTING_FAILED,
-  "Не прошёл тестирование": REQUEST_STATUS.TESTING_FAILED,
-  "Отправлена ссылка на орг. чат": REQUEST_STATUS.CHAT_LINK_SENT,
-  "Не добавился в орг чат": REQUEST_STATUS.CHAT_NOT_JOINED,
-  "Не добавился в орг. чат": REQUEST_STATUS.CHAT_NOT_JOINED,
-  "Добавился в орг чат": REQUEST_STATUS.JOINED_CHAT,
-  "Добавился в орг. чат": REQUEST_STATUS.JOINED_CHAT,
-  "Присутствует на ПШ": REQUEST_STATUS.STARTED,
-  "Отказался от ПШ": REQUEST_STATUS.DECLINED_PSH,
-  "Удален с ПШ": REQUEST_STATUS.REMOVED_FROM_PSH,
+  [normalizeStatusKey("Прислал заявку")]: REQUEST_STATUS.SUBMITTED,
+  [normalizeStatusKey("Прохождение тестирования")]: REQUEST_STATUS.TESTING,
+  [normalizeStatusKey("Не перешел к тестированию")]: REQUEST_STATUS.TESTING_NOT_STARTED,
+  [normalizeStatusKey("Не прошел тестирование")]: REQUEST_STATUS.TESTING_FAILED,
+  [normalizeStatusKey("Отправлена ссылка на орг. чат")]: REQUEST_STATUS.CHAT_LINK_SENT,
+  [normalizeStatusKey("Не добавился в орг. чат")]: REQUEST_STATUS.CHAT_NOT_JOINED,
+  [normalizeStatusKey("Добавился в орг. чат")]: REQUEST_STATUS.JOINED_CHAT,
+  [normalizeStatusKey("Набор завершен")]: REQUEST_STATUS.ENROLLMENT_CLOSED,
+  [normalizeStatusKey("Присутствует на ПШ")]: REQUEST_STATUS.STARTED,
+  [normalizeStatusKey("Отказался от ПШ")]: REQUEST_STATUS.DECLINED_PSH,
+  [normalizeStatusKey("Удален с ПШ")]: REQUEST_STATUS.REMOVED_FROM_PSH,
 };
 
 let statusCache: BackendStatus[] | null = null;
@@ -98,7 +99,7 @@ function toNumber(value: unknown): number | undefined {
 
 function normalizeLegacyStatus(status?: string): string | undefined {
   if (!status) return status;
-  return LEGACY_STATUS_MAP[status] ?? status;
+  return LEGACY_STATUS_MAP[normalizeStatusKey(status)] ?? status;
 }
 
 function normalizeRequest(item: ReqType): ReqType {
@@ -359,6 +360,13 @@ export async function updateRequestStatus(id: number, status: string) {
       });
     }
 
+    if (normalizedStatus === REQUEST_STATUS.ENROLLMENT_CLOSED) {
+      events.push({
+        code: "enrollment.closed",
+        request: updated,
+        previousStatus: previous?.status,
+      });
+    }
     await runRequestAutomationEvents(events);
 
     return normalizeRequest((await getMockRequestById(id)) ?? updated);
