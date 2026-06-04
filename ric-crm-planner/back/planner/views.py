@@ -5,6 +5,7 @@ from django.db import transaction
 from django.utils.decorators import method_decorator
 from drf_yasg.utils import swagger_auto_schema
 from drf_yasg import openapi
+from rest_framework.exceptions import PermissionDenied
 from rest_framework.generics import ListAPIView, RetrieveUpdateAPIView
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
@@ -13,6 +14,7 @@ from rest_framework.views import APIView
 from planner.automation_defaults import create_default_planner_automation_config
 from planner.automation_engine import run_due_planner_automation, run_planner_automation, scan_planner_deadlines
 from planner.models import PlannerAutomationConfig, PlannerAutomationExecutionLog, PlannerWorkspaceState, TeamPlannerDesk
+from planner.realtime import broadcast_team_desk_update
 from planner.serializers import (
     PlannerAutomationConfigPayloadSerializer,
     PlannerAutomationConfigSerializer,
@@ -178,10 +180,32 @@ def _enrich_team_member_roles(teams):
     return enriched
 
 
+
+def _user_can_access_team_desk(user, team_id):
+    if not user or not user.is_authenticated:
+        return False
+    if has_curator_or_admin_role(user):
+        return True
+
+    normalized_team_id = _to_int(team_id)
+    workspace = PlannerWorkspaceState.objects.order_by("id").first()
+    teams = workspace.teams if workspace and isinstance(workspace.teams, list) else []
+    if normalized_team_id in _visible_team_ids_for_restricted_user(teams, user):
+        return True
+
+    desk = TeamPlannerDesk.objects.filter(team_id=normalized_team_id).first()
+    if not desk:
+        return False
+
+    user_id = _to_int(user.id)
+    member_ids = [_to_int(member_id) for member_id in (desk.member_ids if isinstance(desk.member_ids, list) else [])]
+    return user_id in member_ids or user_id == _to_int(desk.curator_id)
+
 def _sync_team_desks_from_workspace(workspace: PlannerWorkspaceState):
     teams = workspace.teams if isinstance(workspace.teams, list) else []
     parent_tasks = workspace.parent_tasks if isinstance(workspace.parent_tasks, list) else []
     subtasks = workspace.subtasks if isinstance(workspace.subtasks, list) else []
+    updated_desks = []
 
     teams_by_id = {}
     for team in teams:
@@ -205,9 +229,62 @@ def _sync_team_desks_from_workspace(workspace: PlannerWorkspaceState):
             desk.subtasks = [item for item in subtasks if _team_id_from_item(item) == team_id]
             desk.columns = workspace.columns
             desk.save()
+            updated_desks.append(desk)
 
         TeamPlannerDesk.objects.exclude(team_id__in=target_ids).delete()
 
+    return updated_desks
+
+
+def _sync_workspace_from_team_desk(desk: TeamPlannerDesk):
+    workspace = PlannerWorkspaceState.objects.order_by("id").first()
+    if not workspace:
+        workspace = PlannerWorkspaceState.objects.create()
+
+    team_id = _to_int(desk.team_id)
+    teams = workspace.teams if isinstance(workspace.teams, list) else []
+    parent_tasks = workspace.parent_tasks if isinstance(workspace.parent_tasks, list) else []
+    subtasks = workspace.subtasks if isinstance(workspace.subtasks, list) else []
+
+    next_teams = []
+    team_found = False
+    for team in teams:
+        if not isinstance(team, dict) or _to_int(team.get("id")) != team_id:
+            next_teams.append(team)
+            continue
+
+        team_found = True
+        next_teams.append(
+            {
+                **team,
+                "name": desk.team_name or team.get("name", ""),
+                "curatorId": desk.curator_id,
+                "memberIds": desk.member_ids if isinstance(desk.member_ids, list) else [],
+            }
+        )
+
+    if not team_found and team_id is not None:
+        next_teams.append(
+            {
+                "id": team_id,
+                "name": desk.team_name or f"Команда #{team_id}",
+                "curatorId": desk.curator_id,
+                "memberIds": desk.member_ids if isinstance(desk.member_ids, list) else [],
+                "confirmed": False,
+            }
+        )
+
+    workspace.teams = next_teams
+    workspace.parent_tasks = [item for item in parent_tasks if _team_id_from_item(item) != team_id] + (
+        desk.parent_tasks if isinstance(desk.parent_tasks, list) else []
+    )
+    workspace.subtasks = [item for item in subtasks if _team_id_from_item(item) != team_id] + (
+        desk.subtasks if isinstance(desk.subtasks, list) else []
+    )
+    if isinstance(desk.columns, list) and desk.columns:
+        workspace.columns = desk.columns
+    workspace.save(update_fields=["teams", "parent_tasks", "subtasks", "columns", "updated_at"])
+    return workspace
 
 @method_decorator(
     name="get",
@@ -320,7 +397,10 @@ class PlannerStateCompatView(RetrieveUpdateAPIView):
 
         run_planner_automation(previous_state, workspace)
         workspace.refresh_from_db()
-        _sync_team_desks_from_workspace(workspace)
+        should_sync_desks = self.request.method.upper() == "PUT" or "parent_tasks" in self.request.data or "subtasks" in self.request.data
+        if should_sync_desks:
+            for desk in _sync_team_desks_from_workspace(workspace):
+                broadcast_team_desk_update(desk)
 
 
 @method_decorator(
@@ -335,7 +415,18 @@ class PlannerStateCompatView(RetrieveUpdateAPIView):
 class TeamPlannerDeskListView(ListAPIView):
     permission_classes = (IsAuthenticated,)
     serializer_class = TeamPlannerDeskSerializer
-    queryset = TeamPlannerDesk.objects.all()
+
+    def get_queryset(self):
+        if has_curator_or_admin_role(self.request.user):
+            return TeamPlannerDesk.objects.all()
+
+        workspace = PlannerWorkspaceState.objects.order_by("id").first()
+        teams = workspace.teams if workspace and isinstance(workspace.teams, list) else []
+        visible_team_ids = _visible_team_ids_for_restricted_user(teams, self.request.user)
+        user_id = _to_int(self.request.user.id)
+        return TeamPlannerDesk.objects.filter(
+            Q(team_id__in=visible_team_ids) | Q(curator_id=user_id) | Q(member_ids__contains=[user_id])
+        )
 
 
 @method_decorator(
@@ -375,7 +466,22 @@ class TeamPlannerDeskDetailView(RetrieveUpdateAPIView):
     def get_object(self):
         team_id = self.kwargs.get(self.lookup_url_kwarg)
         desk, _ = TeamPlannerDesk.objects.get_or_create(team_id=team_id)
+        if not _user_can_access_team_desk(self.request.user, team_id):
+            raise PermissionDenied("No access to team desk.")
         return desk
+
+    def perform_update(self, serializer):
+        workspace = PlannerWorkspaceState.objects.order_by("id").first()
+        previous_state = {
+            "teams": deepcopy(workspace.teams) if workspace and isinstance(workspace.teams, list) else [],
+            "parent_tasks": deepcopy(workspace.parent_tasks) if workspace and isinstance(workspace.parent_tasks, list) else [],
+            "subtasks": deepcopy(workspace.subtasks) if workspace and isinstance(workspace.subtasks, list) else [],
+            "columns": deepcopy(workspace.columns) if workspace and isinstance(workspace.columns, list) else [],
+        }
+        desk = serializer.save()
+        workspace = _sync_workspace_from_team_desk(desk)
+        run_planner_automation(previous_state, workspace)
+        broadcast_team_desk_update(desk)
 
 
 class PlannerAutomationConfigView(RetrieveUpdateAPIView):

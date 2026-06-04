@@ -3,7 +3,10 @@ import { Modal as AntModal } from "antd";
 import {
   buildParticipantsFromRequests,
   getPlannerState,
+  getPlannerTeamDeskSocketUrl,
   hasPlannerAccessStatus,
+  mergeTeamDeskIntoPlannerState,
+  parsePlannerTeamDeskSocketMessage,
   savePlannerState,
   syncParticipants,
 } from "../api/planner";
@@ -55,6 +58,7 @@ export default function PlannerPage() {
   const userId = Number(user?.id || 0);
   const skipNextPlannerSaveRef = useRef(false);
   const syncedProjectCuratorKeyRef = useRef<Set<string>>(new Set());
+  const plannerSocketRef = useRef<WebSocket | null>(null);
 
   const [tab, setTab] = useState<PlannerTab>(() => {
     const raw = localStorage.getItem("planner_tab_v1");
@@ -166,14 +170,6 @@ export default function PlannerPage() {
     });
   };
 
-  useEffect(() => {
-    if (!isPlannerLoaded) return;
-    if (skipNextPlannerSaveRef.current) {
-      skipNextPlannerSaveRef.current = false;
-      return;
-    }
-    void savePlannerState(state);
-  }, [isPlannerLoaded, state]);
 
   useEffect(() => {
     if (!isPlannerLoaded) return;
@@ -340,6 +336,14 @@ export default function PlannerPage() {
   const visibleTeams = state.teams.filter((t) => canViewTeam(t.id) && !hiddenEventIdSet.has(Number(t.eventId)));
   const activeTeamId = teamFilter ? Number(teamFilter) : null;
   const activeTeam = activeTeamId != null ? visibleTeams.find((team) => Number(team.id) === Number(activeTeamId)) ?? null : null;
+  useEffect(() => {
+    if (!isPlannerLoaded) return;
+    if (skipNextPlannerSaveRef.current) {
+      skipNextPlannerSaveRef.current = false;
+      return;
+    }
+    void savePlannerState(state, activeTeamId);
+  }, [activeTeamId, isPlannerLoaded, state]);
   const plannerAutomationEventId = Number(activeTeam?.eventId ?? visibleTeams[0]?.eventId ?? 0) || null;
   const openPlannerAutomation = () => {
     if (!plannerAutomationEventId) {
@@ -386,6 +390,29 @@ export default function PlannerPage() {
   const getTeamMemberIds = (teamId: number) =>
     state.teams.find((t) => Number(t.id) === Number(teamId))?.memberIds || [];
   const activeTeamMembers = activeTeamId != null ? getTeamMemberIds(activeTeamId) : [];
+  useEffect(() => {
+    if (!isPlannerLoaded || activeTeamId == null || !Number.isFinite(activeTeamId) || activeTeamId <= 0) return;
+
+    const socket = new WebSocket(getPlannerTeamDeskSocketUrl(activeTeamId));
+    plannerSocketRef.current = socket;
+
+    socket.onmessage = (event) => {
+      const message = parsePlannerTeamDeskSocketMessage(String(event.data));
+      if (!message || message.type !== "desk.updated" || Number(message.teamId) !== Number(activeTeamId)) return;
+
+      skipNextPlannerSaveRef.current = true;
+      setState((prev) => mergeTeamDeskIntoPlannerState(prev, message.desk));
+    };
+
+    socket.onerror = () => {
+      socket.close();
+    };
+
+    return () => {
+      if (plannerSocketRef.current === socket) plannerSocketRef.current = null;
+      socket.close();
+    };
+  }, [activeTeamId, isPlannerLoaded]);
   const selectedTeamMembers = selectedParent
     ? state.teams.find((t) => Number(t.id) === Number(selectedParent.teamId))?.memberIds || []
     : [];
@@ -1043,7 +1070,7 @@ export default function PlannerPage() {
             };
 
             setState(nextState);
-            void savePlannerState(nextState);
+            void savePlannerState(nextState, teamId);
 
             syncProjectCurator(resolveTeamProjectId(targetTeam), curatorId);
 
@@ -1060,7 +1087,7 @@ export default function PlannerPage() {
             };
 
             setState(nextState);
-            void savePlannerState(nextState);
+            void savePlannerState(nextState, teamId);
 
             const remainingCuratorIds = Array.from(
               new Set(

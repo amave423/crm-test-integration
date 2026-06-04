@@ -1,4 +1,4 @@
-﻿import client from "../../../api/client";
+import client from "../../../api/client";
 import { REQUEST_STATUS, isNegativeRequestStatus } from "../../../constants/requestProgress";
 import { readPlannerState, writePlannerState } from "../storage/planner";
 import type { PlannerParticipant, PlannerState } from "../../../types/planner";
@@ -6,6 +6,24 @@ import type { Request } from "../../../types/request";
 import type { User } from "../../../types/user";
 
 const USE_MOCK = client.USE_MOCK;
+
+export type PlannerTeamDesk = {
+  teamId: number;
+  teamName: string;
+  curatorId?: number;
+  memberIds: number[];
+  parentTasks: PlannerState["parentTasks"];
+  subtasks: PlannerState["subtasks"];
+  columns: string[];
+  updatedAt?: string;
+};
+
+export type PlannerTeamDeskSocketMessage = {
+  type: "desk.updated" | "desk.snapshot";
+  teamId: number;
+  action?: string;
+  desk: PlannerTeamDesk;
+};
 
 type BackendPlanner = {
   enrollmentClosed?: boolean;
@@ -20,6 +38,23 @@ type BackendPlanner = {
   parent_tasks?: PlannerState["parentTasks"];
   subtasks?: PlannerState["subtasks"];
   columns?: string[];
+};
+
+type BackendPlannerTeamDesk = {
+  teamId?: number | string;
+  team_id?: number | string;
+  teamName?: string;
+  team_name?: string;
+  curatorId?: number | string;
+  curator_id?: number | string;
+  memberIds?: Array<number | string>;
+  member_ids?: Array<number | string>;
+  parentTasks?: unknown[];
+  parent_tasks?: unknown[];
+  subtasks?: unknown[];
+  columns?: string[];
+  updatedAt?: string;
+  updated_at?: string;
 };
 
 type BackendPlannerTeam = Partial<PlannerState["teams"][number]> & {
@@ -38,6 +73,7 @@ type BackendPlannerTeam = Partial<PlannerState["teams"][number]> & {
 };
 
 type BackendPlannerParentTask = Partial<PlannerState["parentTasks"][number]> & {
+  team_id?: number | string;
   assigneeId?: number | string;
   assignee_id?: number | string;
   created_by?: number | string;
@@ -45,6 +81,8 @@ type BackendPlannerParentTask = Partial<PlannerState["parentTasks"][number]> & {
 };
 
 type BackendPlannerSubtask = Partial<PlannerState["subtasks"][number]> & {
+  team_id?: number | string;
+  parent_task_id?: number | string;
   assigneeId?: number | string;
   assignee_id?: number | string;
   inSprint?: boolean;
@@ -116,7 +154,7 @@ function mapBackendParentTasks(parentTasks: unknown, fallback: PlannerState): Pl
     return {
       ...task,
       id: toNumber(task.id) ?? 0,
-      teamId: toNumber(task.teamId) ?? 0,
+      teamId: toNumber(task.teamId ?? task.team_id) ?? 0,
       title: String(task.title ?? ""),
       assigneeId: toNumber(task.assigneeId ?? task.assignee_id),
       startDate: String(task.startDate ?? ""),
@@ -127,6 +165,128 @@ function mapBackendParentTasks(parentTasks: unknown, fallback: PlannerState): Pl
   });
 }
 
+
+function mapBackendTeamDesk(raw: unknown): PlannerTeamDesk {
+  const desk = (raw || {}) as BackendPlannerTeamDesk;
+  const teamId = toNumber(desk.teamId ?? desk.team_id) ?? 0;
+  const fallback: PlannerState = {
+    enrollmentClosed: false,
+    closedEventIds: [],
+    hiddenEventIds: [],
+    participants: [],
+    teams: [],
+    parentTasks: [],
+    subtasks: [],
+    columns: [],
+  };
+
+  const parentTasks = mapBackendParentTasks(desk.parentTasks ?? desk.parent_tasks, fallback).map((task) => ({
+    ...task,
+    teamId: Number(task.teamId) || teamId,
+  }));
+
+  const subtasks = Array.isArray(desk.subtasks)
+    ? desk.subtasks.map((item) => {
+        const subtask = item as BackendPlannerSubtask;
+        return {
+          ...subtask,
+          id: toNumber(subtask.id) ?? 0,
+          teamId: toNumber(subtask.teamId ?? subtask.team_id) ?? teamId,
+          parentTaskId: toNumber(subtask.parentTaskId ?? subtask.parent_task_id) ?? 0,
+          title: String(subtask.title ?? ""),
+          role: String(subtask.role ?? ""),
+          assigneeId: toNumber(subtask.assigneeId ?? subtask.assignee_id),
+          startDate: String(subtask.startDate ?? ""),
+          endDate: String(subtask.endDate ?? ""),
+          inSprint: Boolean(subtask.inSprint ?? subtask.in_sprint),
+          status: String(subtask.status ?? ""),
+          createdBy: toNumber(subtask.createdBy ?? subtask.created_by),
+          updatedAt: String(subtask.updatedAt ?? subtask.updated_at ?? ""),
+        };
+      })
+    : [];
+
+  return {
+    teamId,
+    teamName: String(desk.teamName ?? desk.team_name ?? ""),
+    curatorId: toNumber(desk.curatorId ?? desk.curator_id),
+    memberIds: Array.isArray(desk.memberIds ?? desk.member_ids)
+      ? (desk.memberIds ?? desk.member_ids ?? []).map((id) => Number(id)).filter((id) => Number.isFinite(id))
+      : [],
+    parentTasks,
+    subtasks,
+    columns: Array.isArray(desk.columns) ? desk.columns : [],
+    updatedAt: String(desk.updatedAt ?? desk.updated_at ?? ""),
+  };
+}
+
+export function parsePlannerTeamDeskSocketMessage(raw: string): PlannerTeamDeskSocketMessage | null {
+  try {
+    const data = JSON.parse(raw) as { type?: string; teamId?: number | string; team_id?: number | string; action?: string; desk?: unknown };
+    if (data.type !== "desk.updated" && data.type !== "desk.snapshot") return null;
+    if (!data.desk) return null;
+
+    const desk = mapBackendTeamDesk(data.desk);
+    const teamId = toNumber(data.teamId ?? data.team_id) ?? desk.teamId;
+    if (!teamId) return null;
+
+    return {
+      type: data.type,
+      teamId,
+      action: data.action,
+      desk: { ...desk, teamId },
+    };
+  } catch {
+    return null;
+  }
+}
+
+export function mergeTeamDeskIntoPlannerState(state: PlannerState, desk: PlannerTeamDesk): PlannerState {
+  const teamId = Number(desk.teamId);
+  if (!Number.isFinite(teamId) || teamId <= 0) return state;
+
+  const teams = state.teams.some((team) => Number(team.id) === teamId)
+    ? state.teams.map((team) =>
+        Number(team.id) === teamId
+          ? {
+              ...team,
+              name: desk.teamName || team.name,
+              curatorId: desk.curatorId,
+              memberIds: desk.memberIds,
+              updatedAt: desk.updatedAt || team.updatedAt,
+            }
+          : team
+      )
+    : [
+        ...state.teams,
+        {
+          id: teamId,
+          name: desk.teamName || `Команда #${teamId}`,
+          curatorId: desk.curatorId,
+          memberIds: desk.memberIds,
+          confirmed: false,
+          updatedAt: desk.updatedAt,
+        },
+      ];
+
+  return {
+    ...state,
+    teams,
+    parentTasks: [...state.parentTasks.filter((task) => Number(task.teamId) !== teamId), ...desk.parentTasks],
+    subtasks: [...state.subtasks.filter((subtask) => Number(subtask.teamId) !== teamId), ...desk.subtasks],
+    columns: desk.columns.length ? desk.columns : state.columns,
+  };
+}
+
+export function getPlannerTeamDeskSocketUrl(teamId: number): string {
+  const baseUrl = client.API_BASE || window.location.origin;
+  const url = new URL(baseUrl, window.location.origin);
+  url.protocol = url.protocol === "https:" ? "wss:" : "ws:";
+  url.pathname = `/ws/planner/teams/${teamId}/`;
+  url.search = "";
+  url.hash = "";
+  return url.toString();
+}
 function mapBackendPlanner(raw: unknown): PlannerState {
   const fallback = readPlannerState(false);
   if (!raw || typeof raw !== "object") return fallback;
@@ -196,7 +356,7 @@ function mapBackendPlanner(raw: unknown): PlannerState {
   };
 }
 
-function toBackendPlanner(state: PlannerState) {
+function toBackendPlannerWorkspace(state: PlannerState) {
   return {
     enrollment_closed: state.closedEventIds.length > 0,
     closed_event_ids: state.closedEventIds,
@@ -206,8 +366,19 @@ function toBackendPlanner(state: PlannerState) {
       full_name: participant.fullName,
     })),
     teams: state.teams,
-    parent_tasks: state.parentTasks,
-    subtasks: state.subtasks,
+    columns: state.columns,
+  };
+}
+
+function toBackendTeamDesk(state: PlannerState, teamId: number) {
+  const team = state.teams.find((item) => Number(item.id) === Number(teamId));
+  return {
+    team_id: teamId,
+    team_name: team?.name ?? "",
+    curator_id: team?.curatorId ?? null,
+    member_ids: team?.memberIds ?? [],
+    parent_tasks: state.parentTasks.filter((task) => Number(task.teamId) === Number(teamId)),
+    subtasks: state.subtasks.filter((subtask) => Number(subtask.teamId) === Number(teamId)),
     columns: state.columns,
   };
 }
@@ -224,12 +395,33 @@ export async function getPlannerState(): Promise<PlannerState> {
   }
 }
 
-export async function savePlannerState(state: PlannerState): Promise<PlannerState> {
+export async function savePlannerWorkspaceState(state: PlannerState): Promise<PlannerState> {
   writePlannerState(state);
   if (USE_MOCK) return state;
   try {
-    await client.put("/api/users/planner/", toBackendPlanner(state));
+    await client.patch("/api/users/planner/", toBackendPlannerWorkspace(state));
   } catch {
+  }
+  return state;
+}
+
+export async function savePlannerTeamDesk(state: PlannerState, teamId: number): Promise<PlannerState> {
+  writePlannerState(state);
+  if (USE_MOCK) return state;
+  try {
+    await client.put(`/api/planner/teams/${teamId}/desk/`, toBackendTeamDesk(state, teamId));
+  } catch {
+  }
+  return state;
+}
+
+export async function savePlannerState(state: PlannerState, activeTeamId?: number | null): Promise<PlannerState> {
+  writePlannerState(state);
+  if (USE_MOCK) return state;
+
+  await savePlannerWorkspaceState(state);
+  if (activeTeamId != null && Number.isFinite(activeTeamId) && activeTeamId > 0) {
+    await savePlannerTeamDesk(state, activeTeamId);
   }
   return state;
 }

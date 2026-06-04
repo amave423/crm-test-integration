@@ -79,6 +79,7 @@ ALLOWED_HOSTS = env_list(
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
@@ -93,6 +94,7 @@ INSTALLED_APPS = [
     'rest_framework_simplejwt.token_blacklist',
     'corsheaders',
     'drf_yasg',
+    'channels',
 ]
 
 MIDDLEWARE = [
@@ -125,6 +127,7 @@ TEMPLATES = [
 ]
 
 WSGI_APPLICATION = 'api.wsgi.application'
+ASGI_APPLICATION = 'api.asgi.application'
 
 
 # Database
@@ -140,6 +143,22 @@ DATABASES = {
         "PORT": os.getenv("DB_PORT", "5432"),
     }
 }
+
+
+REDIS_URL = os.getenv("REDIS_URL", "")
+if REDIS_URL:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {"hosts": [REDIS_URL]},
+        }
+    }
+else:
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels.layers.InMemoryChannelLayer",
+        }
+    }
 
 CACHES = {
     "default": {
