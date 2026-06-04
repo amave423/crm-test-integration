@@ -6,7 +6,8 @@ import "../../styles/profile.scss";
 import AppButton from "../../components/UI/Button";
 import AppInput, { AppTextArea } from "../../components/UI/Input";
 import AppSelect from "../../components/UI/Select";
-import { SPECIALIZATION_OPTIONS } from "../../constants/specializations";
+import { getSpecializations } from "../../api/specializations";
+import type { Specialization } from "../../types/event";
 
 const DEFAULT_NAME = "Имя";
 const DEFAULT_SURNAME = "Фамилия";
@@ -85,7 +86,20 @@ export default function ProfilePage() {
     email: "example@mail.ru",
   });
   const [selectedSpecializationId, setSelectedSpecializationId] = useState("");
+  const [specializationOptions, setSpecializationOptions] = useState<Specialization[]>([]);
 
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const loadedSpecializations = await getSpecializations();
+      if (mounted) setSpecializationOptions(loadedSpecializations);
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
   useEffect(() => {
     let mounted = true;
 
@@ -137,7 +151,7 @@ export default function ProfilePage() {
   const update = (key: keyof typeof profile, value: string | string[]) => setProfile((prev) => ({ ...prev, [key]: value }));
 
   const addSpecialization = () => {
-    const selected = SPECIALIZATION_OPTIONS.find((item) => String(item.id) === String(selectedSpecializationId));
+    const selected = specializationOptions.find((item) => String(item.id) === String(selectedSpecializationId));
     if (!selected) return;
 
     setProfile((prev) => {
@@ -240,7 +254,7 @@ export default function ProfilePage() {
                   onChange={(value) => setSelectedSpecializationId(String(value))}
                   options={[
                     { value: "", label: "Выберите специализацию" },
-                    ...SPECIALIZATION_OPTIONS.map((specialization) => ({
+                    ...specializationOptions.map((specialization) => ({
                       value: String(specialization.id),
                       label: specialization.title,
                     })),

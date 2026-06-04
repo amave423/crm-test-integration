@@ -1,6 +1,6 @@
 import { CheckOutlined } from "@ant-design/icons";
 import { useContext, useEffect, useMemo, useRef, useState } from "react";
-import { SPECIALIZATION_OPTIONS } from "../../../../../constants/specializations";
+import { getSpecializations } from "../../../../../api/specializations";
 import { getEventById, removeEvent as archiveEvent, saveEvent as persistEvent } from "../../../api/events";
 import { getRequests } from "../../../../requests/api/requests";
 import { getAllUsers } from "../../../../../storage/storage";
@@ -45,6 +45,7 @@ export default function EventForm() {
   const [orgChatPeerId, setOrgChatPeerId] = useState("");
   const [selectedOrganizerIds, setSelectedOrganizerIds] = useState<string[]>([]);
   const [selectedOrganizerId, setSelectedOrganizerId] = useState("");
+  const [availableSpecializations, setAvailableSpecializations] = useState<SpecializationOption[]>([]);
   const [specializations, setSpecializations] = useState<SpecializationOption[]>([]);
   const [selectedSpecializationIds, setSelectedSpecializationIds] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
@@ -85,6 +86,18 @@ export default function EventForm() {
     [applyDeadline, description, endDate, orgChatPeerId, orgChatUrl, selectedOrganizerIds, specializations, startDate, title]
   );
 
+  useEffect(() => {
+    let mounted = true;
+
+    (async () => {
+      const loadedSpecializations = await getSpecializations();
+      if (mounted) setAvailableSpecializations(loadedSpecializations);
+    })();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
   useEffect(() => {
     let mounted = true;
 
@@ -229,7 +242,7 @@ export default function EventForm() {
 
   const handleSpecializationSelect = (value: string | number) => {
     const selectedId = String(value);
-    const option = SPECIALIZATION_OPTIONS.find((item) => Number(item.id) === Number(selectedId));
+    const option = availableSpecializations.find((item) => Number(item.id) === Number(selectedId));
     if (!option) return;
 
     setSelectedSpecializationIds((prev) =>
@@ -491,7 +504,7 @@ export default function EventForm() {
             placeholder={specializations.length ? "Добавить специализацию" : "Выберите специализации"}
             showSearch
             optionFilterProp="label"
-            options={SPECIALIZATION_OPTIONS.map((specialization) => ({
+            options={availableSpecializations.map((specialization) => ({
               value: String(specialization.id),
               label: specialization.title,
               disabled: selectedSpecializationIds.some((id) => Number(id) === Number(specialization.id)),
