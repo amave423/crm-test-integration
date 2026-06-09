@@ -1,27 +1,34 @@
 # Развертывание CRM и модуля тестирования
 
-Этот документ описывает промышленный вариант запуска проекта на VPS. Проект состоит из двух частей:
+Документ описывает первый запуск проекта на VPS и настройку CI/CD через GitHub Actions. Инструкция рассчитана на разработчика или администратора, которому передают проект.
 
-- CRM-модуль: мероприятия, направления, проекты, заявки, статусы, роботы, VK-интеграция, планировщик.
-- Модуль тестирования: создание тестов, назначение тестов на мероприятия, прохождение тестов проектантами и передача результата обратно в CRM.
+## 1. Состав проекта
 
-Оба модуля запускаются вместе. Разделять их в production не нужно.
+Проект запускается как единый сервис. Разделять CRM и модуль тестирования в production не нужно, потому что CRM использует тестирование через SSO и получает результаты обратно через API.
 
-## 1. Как теперь устроен деплой
+Компоненты:
 
-Нормальная схема для сервера такая:
+- CRM backend: Django API, заявки, мероприятия, автоматизация, планировщик, VK-интеграция.
+- CRM frontend: React + TypeScript интерфейс CRM.
+- Testing backend: backend конструктора тестов.
+- Testing frontend: интерфейс конструктора и прохождения тестов.
+- PostgreSQL CRM: база CRM.
+- PostgreSQL testing: база модуля тестирования.
+- Caddy: HTTPS, frontend, reverse proxy.
 
-1. GitHub Actions собирает Docker-образы.
-2. GitHub Actions публикует образы в GitHub Container Registry: `ghcr.io`.
-3. VPS подключается по SSH.
-4. На VPS выполняется `git pull`, чтобы забрать новый `docker-compose.prod.yml` и конфигурацию.
-5. VPS скачивает готовые образы через `docker compose pull`.
-6. VPS перезапускает контейнеры через `docker compose up -d`.
-7. VPS запускает миграции CRM backend.
+## 2. Требования к VPS
 
-Главная разница: на VPS больше не выполняется тяжелая сборка `docker compose up -d --build`. Серверу не нужно держать Node.js/Go/Python build cache, поэтому деплой быстрее и меньше забивает диск.
+Минимум для нормального production-запуска без сборки на сервере:
 
-## 2. Домены и сервер
+- 2 CPU;
+- 2 GB RAM;
+- 30 GB SSD;
+- Ubuntu 22.04/24.04 или близкий Debian-based дистрибутив;
+- открытые порты `80` и `443`.
+
+Если собирать Docker-образы прямо на VPS, 10-15 GB диска и 1 GB RAM обычно не хватает. Production-вариант должен скачивать готовые образы из GHCR.
+
+## 3. Домены и DNS
 
 Основной домен CRM:
 
@@ -29,73 +36,77 @@
 meetuppoint.ru
 ```
 
-Домен модуля тестирования:
+Поддомен модуля тестирования:
 
 ```text
 test.meetuppoint.ru
 ```
 
-IP VPS:
+Обе A-записи должны вести на IP VPS:
 
 ```text
-5.181.108.146
+meetuppoint.ru       A  5.181.108.146
+www.meetuppoint.ru   A  5.181.108.146
+test.meetuppoint.ru  A  5.181.108.146
 ```
 
-DNS должен указывать оба домена на VPS:
+Проверка на сервере или локально:
 
-```text
-meetuppoint.ru        -> 5.181.108.146
-test.meetuppoint.ru  -> 5.181.108.146
+```bash
+nslookup meetuppoint.ru
+nslookup test.meetuppoint.ru
 ```
 
-Если `test.meetuppoint.ru` не создан, модуль тестирования по отдельному адресу не откроется.
+Caddy сам выпустит HTTPS-сертификаты Let's Encrypt, если DNS уже указывает на VPS и порты `80/443` открыты.
 
-## 3. Файлы compose
+## 4. Установка Docker на VPS
 
-В проекте используются два compose-файла:
-
-```text
-docker-compose.yml
-```
-
-Используется для локальной разработки и ручной сборки на тестовом сервере. В нем есть секции `build`, поэтому Docker собирает образы из исходников.
-
-```text
-docker-compose.prod.yml
-```
-
-Используется для production-деплоя. В нем нет секций `build`, только готовые `image` из GHCR. Именно этот файл использует CI/CD на VPS.
-
-## 4. Подготовка VPS
-
-Зайти на сервер:
+Подключиться к серверу:
 
 ```bash
 ssh corleone@5.181.108.146
 ```
 
-Установить Docker, если он еще не установлен:
+Установить зависимости:
 
 ```bash
 sudo apt update
 sudo apt install -y ca-certificates curl gnupg git
+```
+
+Добавить репозиторий Docker:
+
+```bash
 sudo install -m 0755 -d /etc/apt/keyrings
 curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
 sudo chmod a+r /etc/apt/keyrings/docker.gpg
 
-echo \
-  "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu \
-  $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | \
-  sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+```
 
+Установить Docker:
+
+```bash
 sudo apt update
 sudo apt install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
+```
+
+Добавить пользователя в группу Docker:
+
+```bash
 sudo usermod -aG docker $USER
 ```
 
-После `usermod` нужно выйти с сервера и зайти снова, чтобы группа `docker` применилась.
+После этого нужно выйти с сервера и зайти снова.
 
-Клонировать проект:
+Проверить:
+
+```bash
+docker --version
+docker compose version
+```
+
+## 5. Клонирование проекта на VPS
 
 ```bash
 cd ~
@@ -103,11 +114,17 @@ git clone <URL_РЕПОЗИТОРИЯ> crm-test-integration
 cd ~/crm-test-integration
 ```
 
-## 5. Файл `.env` на VPS
+Если репозиторий приватный, настройте SSH-ключ или используйте HTTPS-доступ с token.
 
-Файл `.env` хранится только на сервере. Его нельзя коммитить в GitHub.
+## 6. Файл `.env` на VPS
 
-Создать файл:
+Файл `.env` должен лежать в корне проекта на VPS:
+
+```text
+/home/corleone/crm-test-integration/.env
+```
+
+Создать:
 
 ```bash
 cd ~/crm-test-integration
@@ -115,7 +132,7 @@ cp .env.example .env
 nano .env
 ```
 
-Основные значения для production:
+Обязательные production-значения:
 
 ```env
 APP_DOMAIN=meetuppoint.ru
@@ -131,96 +148,72 @@ DJANGO_CSRF_TRUSTED_ORIGINS=https://meetuppoint.ru
 DJANGO_CORS_ALLOW_ALL_ORIGINS=0
 DJANGO_CORS_ALLOWED_ORIGINS=https://meetuppoint.ru,https://test.meetuppoint.ru
 
+DB_HOST=db
+DB_PORT=5432
 TESTING_SERVICE_URL=https://test.meetuppoint.ru
 VK_CHAT_LINK_BASE_URL=https://meetuppoint.ru
 VK_BOT_FRONTEND_URL=https://meetuppoint.ru
 ```
 
-Обязательно заполнить реальными значениями:
+Обязательно заменить заглушки на реальные секреты:
 
-- `DJANGO_SECRET_KEY`
-- `DB_PASSWORD`
-- `TESTING_DB_PASSWORD`
-- `TESTING_ADMIN_PASSWORD`
-- `TESTING_JWT_SECRET`
-- `TESTING_SERVICE_TOKEN`
-- `VK_ACCESS_TOKEN`
-- `VK_CALLBACK_SECRET`
-- `VK_CONFIRMATION_CODE`
+- `DJANGO_SECRET_KEY`;
+- `DB_PASSWORD`;
+- `TESTING_SERVICE_TOKEN`;
+- `TESTING_DB_PASSWORD`;
+- `TESTING_ADMIN_EMAIL`;
+- `TESTING_ADMIN_PASSWORD`;
+- `TESTING_JWT_SECRET`;
+- `VK_GROUP_ID`;
+- `VK_ACCESS_TOKEN`;
+- `VK_CALLBACK_SECRET`;
+- `VK_CONFIRMATION_CODE`.
 
 Суперпользователь CRM через `.env` не создается. Его нужно создать вручную после первого запуска.
 
-## 6. GitHub Secrets для CI/CD
+## 7. GitHub Secrets для CI/CD
 
-В GitHub открыть:
+Открыть в GitHub:
 
 ```text
-Settings -> Secrets and variables -> Actions -> New repository secret
+Repository -> Settings -> Secrets and variables -> Actions -> New repository secret
 ```
 
-Добавить секреты:
+Добавить secrets:
 
 ```text
-VPS_HOST
-```
-
-Значение:
-
-```text
-5.181.108.146
+VPS_HOST=5.181.108.146
 ```
 
 ```text
-VPS_USER
-```
-
-Значение:
-
-```text
-corleone
+VPS_USER=corleone
 ```
 
 ```text
-VPS_PROJECT_PATH
-```
-
-Значение:
-
-```text
-/home/corleone/crm-test-integration
+VPS_PROJECT_PATH=/home/corleone/crm-test-integration
 ```
 
 ```text
-VPS_SSH_KEY
+VPS_SSH_KEY=<приватный SSH-ключ целиком>
 ```
 
-Значение: приватный SSH-ключ целиком, включая строки:
+В GitHub поле `Name` содержит только имя секрета, например `VPS_HOST`. Поле `Secret` содержит только значение. Писать `VPS_HOST=...` в поле значения не нужно.
 
-```text
------BEGIN OPENSSH PRIVATE KEY-----
-...
------END OPENSSH PRIVATE KEY-----
-```
+## 8. SSH-ключ для GitHub Actions
 
-Ключ вставляется многострочно, не в одну строку.
-
-Знак `=` в GitHub Secrets писать не нужно. В поле `Name` пишется имя секрета, в поле `Secret` только значение.
-
-## 7. SSH-ключ для GitHub Actions
-
-На локальном компьютере создать ключ:
+Создать ключ на локальном компьютере:
 
 ```powershell
 ssh-keygen -t ed25519 -C "github-actions-meetuppoint" -f "$env:USERPROFILE\.ssh\github_actions_meetuppoint"
 ```
 
-Публичный ключ вывести так:
+Публичный ключ:
 
 ```powershell
 Get-Content "$env:USERPROFILE\.ssh\github_actions_meetuppoint.pub"
 ```
 
-На VPS добавить публичный ключ:
+Добавить публичный ключ на VPS:
 
 ```bash
 mkdir -p ~/.ssh
@@ -229,46 +222,111 @@ chmod 700 ~/.ssh
 chmod 600 ~/.ssh/authorized_keys
 ```
 
-В `authorized_keys` вставляется содержимое `.pub` файла одной строкой.
+В `authorized_keys` публичный ключ вставляется одной строкой.
 
-Приватный ключ вывести так:
+Приватный ключ:
 
 ```powershell
 Get-Content "$env:USERPROFILE\.ssh\github_actions_meetuppoint" -Raw
 ```
 
-Его нужно вставить в GitHub Secret `VPS_SSH_KEY`.
+Его нужно вставить в GitHub Secret `VPS_SSH_KEY` полностью, вместе со строками:
 
-## 8. Первый production-запуск через CI/CD
+```text
+-----BEGIN OPENSSH PRIVATE KEY-----
+...
+-----END OPENSSH PRIVATE KEY-----
+```
 
-После настройки `.env`, DNS и GitHub Secrets достаточно сделать push в `main`.
+Ключ оставляется многострочным. В одну строку его превращать не нужно.
 
-GitHub Actions выполнит:
+## 9. Как работает workflow
 
-1. Проверку compose-файлов.
-2. Сборку четырех образов: CRM backend, CRM frontend, testing backend, testing frontend.
-3. Публикацию образов в GHCR.
-4. Подключение к VPS по SSH.
-5. `docker compose -f docker-compose.prod.yml pull`.
-6. `docker compose -f docker-compose.prod.yml up -d`.
-7. Миграции CRM backend.
+Файл:
 
-Проверить контейнеры на VPS:
+```text
+.github/workflows/ci-cd.yml
+```
+
+Запускается:
+
+- при push в `main`;
+- при pull request в `main`, но без деплоя;
+- вручную через `workflow_dispatch`.
+
+Build job:
+
+1. Клонирует репозиторий.
+2. Создает `.env` из `.env.example` для проверки compose.
+3. Вычисляет `IMAGE_PREFIX` автоматически:
+
+```text
+ghcr.io/<github_owner>/<repo_name>
+```
+
+4. Собирает и публикует образы:
+
+```text
+<IMAGE_PREFIX>-backend:<sha>
+<IMAGE_PREFIX>-backend:latest
+<IMAGE_PREFIX>-web:<sha>
+<IMAGE_PREFIX>-web:latest
+<IMAGE_PREFIX>-testing-backend:<sha>
+<IMAGE_PREFIX>-testing-backend:latest
+<IMAGE_PREFIX>-testing-web:<sha>
+<IMAGE_PREFIX>-testing-web:latest
+```
+
+Deploy job:
+
+1. Подключается к VPS по SSH.
+2. Переходит в `VPS_PROJECT_PATH`.
+3. Проверяет наличие `.env`.
+4. Делает `git pull`.
+5. Логинится в GHCR.
+6. Экспортирует `IMAGE_PREFIX` и `IMAGE_TAG`.
+7. Выполняет:
+
+```bash
+docker compose -f docker-compose.prod.yml pull
+docker compose -f docker-compose.prod.yml up -d
+docker compose -f docker-compose.prod.yml exec -T backend python manage.py migrate
+docker compose -f docker-compose.prod.yml ps
+docker image prune -f
+```
+
+## 10. Первый запуск через CI/CD
+
+Порядок:
+
+1. Настроить DNS.
+2. Установить Docker на VPS.
+3. Клонировать репозиторий на VPS.
+4. Создать и заполнить `.env` на VPS.
+5. Добавить GitHub Secrets.
+6. Сделать push в `main` или запустить workflow вручную.
+7. Проверить containers:
 
 ```bash
 cd ~/crm-test-integration
 docker compose -f docker-compose.prod.yml ps
 ```
 
-Создать суперпользователя CRM:
+8. Создать superuser CRM:
 
 ```bash
 docker compose -f docker-compose.prod.yml exec backend python manage.py createsuperuser
 ```
 
-## 9. Ручной production-деплой без сборки на VPS
+9. Открыть:
 
-Если нужно вручную перезапустить production без GitHub Actions:
+```text
+https://meetuppoint.ru/admin/
+```
+
+## 11. Ручной production-деплой без GitHub Actions
+
+Использовать, если нужно перезапустить сервер вручную или проверить деплой без workflow.
 
 ```bash
 cd ~/crm-test-integration
@@ -281,58 +339,106 @@ docker compose -f docker-compose.prod.yml exec -T backend python manage.py migra
 docker compose -f docker-compose.prod.yml ps
 ```
 
-Если GHCR-пакеты приватные, перед `pull` нужно выполнить login:
+Если образы приватные:
 
 ```bash
 echo <GHCR_TOKEN> | docker login ghcr.io -u <GITHUB_USERNAME> --password-stdin
 ```
 
-Для ручного pull нужен GitHub token с правом `read:packages`.
+Token должен иметь право `read:packages`.
 
-## 10. Локальный запуск
+## 12. Частые ошибки CI/CD
 
-Для локальной проверки используется обычный compose с локальным override:
+### `env file .env not found`
 
-```bash
-docker compose -f docker-compose.yml -f docker-compose.local.yml up -d --build
-```
+На VPS нет `.env` в корне проекта.
 
-Открыть CRM:
-
-```text
-http://localhost
-```
-
-## 11. Если сайт не открывается
-
-Проверить DNS:
-
-```bash
-nslookup meetuppoint.ru
-nslookup test.meetuppoint.ru
-```
-
-Оба домена должны возвращать:
-
-```text
-5.181.108.146
-```
-
-Проверить контейнеры:
+Решение:
 
 ```bash
 cd ~/crm-test-integration
-docker compose -f docker-compose.prod.yml ps
+cp .env.example .env
+nano .env
 ```
 
-Проверить Caddy:
+### `required variable IMAGE_PREFIX is missing`
+
+Команда `docker compose -f docker-compose.prod.yml ...` запущена вручную без `IMAGE_PREFIX`.
+
+Решение:
 
 ```bash
+export IMAGE_PREFIX=ghcr.io/<github_owner>/<repo_name>
+export IMAGE_TAG=latest
+docker compose -f docker-compose.prod.yml up -d
+```
+
+### `error from registry: denied`
+
+Сервер не имеет доступа к GHCR-образам.
+
+Решение:
+
+```bash
+echo <GHCR_TOKEN> | docker login ghcr.io -u <GITHUB_USERNAME> --password-stdin
+```
+
+Или сделать packages публичными в настройках GitHub Packages.
+
+### Сайт открывается как страница хостинга или старый сайт
+
+DNS указывает не на VPS.
+
+Проверить:
+
+```bash
+nslookup meetuppoint.ru
+```
+
+### HTTPS не выпускается
+
+Проверить:
+
+- DNS указывает на VPS;
+- порты `80` и `443` открыты;
+- контейнер `web` запущен;
+- в `.env` указаны правильные `APP_DOMAIN` и `TESTING_DOMAIN`.
+
+Команды:
+
+```bash
+sudo ufw status
 docker compose -f docker-compose.prod.yml logs --tail=100 web
 ```
 
-Проверить backend:
+### CSRF ошибка в Django admin
+
+Проверить `.env`:
+
+```env
+DJANGO_CSRF_TRUSTED_ORIGINS=https://meetuppoint.ru
+DJANGO_ALLOWED_HOSTS=meetuppoint.ru,5.181.108.146,localhost,127.0.0.1,backend
+```
+
+После изменения:
 
 ```bash
-docker compose -f docker-compose.prod.yml logs --tail=100 backend
+docker compose -f docker-compose.prod.yml up -d
 ```
+
+## 13. Передача проекта другому владельцу GitHub
+
+После transfer repository:
+
+1. Новый владелец заново добавляет GitHub Secrets.
+2. На VPS проверить, что `git pull` работает из нового remote.
+3. Если используется ручной деплой, поменять `IMAGE_PREFIX`:
+
+```bash
+export IMAGE_PREFIX=ghcr.io/<new_owner>/<repo_name>
+```
+
+4. Запустить workflow из нового репозитория.
+5. Проверить, что GHCR packages доступны VPS.
+
+Workflow вычисляет `IMAGE_PREFIX` автоматически, поэтому в `.github/workflows/ci-cd.yml` обычно ничего менять не нужно, если структура имен образов осталась прежней.
