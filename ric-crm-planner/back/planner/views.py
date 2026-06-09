@@ -400,7 +400,7 @@ class PlannerStateCompatView(RetrieveUpdateAPIView):
 
         run_planner_automation(previous_state, workspace)
         workspace.refresh_from_db()
-        should_sync_desks = self.request.method.upper() == "PUT" or "parent_tasks" in self.request.data or "subtasks" in self.request.data
+        should_sync_desks = self.request.method.upper() == "PUT" or "teams" in self.request.data or "parent_tasks" in self.request.data or "subtasks" in self.request.data
         if should_sync_desks:
             for desk in _sync_team_desks_from_workspace(workspace):
                 broadcast_team_desk_update(desk)

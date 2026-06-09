@@ -423,7 +423,12 @@ export async function savePlannerState(state: PlannerState, activeTeamId?: numbe
   if (USE_MOCK) return state;
 
   await savePlannerWorkspaceState(state);
-  if (activeTeamId != null && Number.isFinite(activeTeamId) && activeTeamId > 0) {
+  const shouldSaveTeamDesk =
+    activeTeamId != null &&
+    Number.isFinite(activeTeamId) &&
+    activeTeamId > 0 &&
+    state.teams.some((team) => Number(team.id) === Number(activeTeamId));
+  if (shouldSaveTeamDesk) {
     await savePlannerTeamDesk(state, activeTeamId);
   }
   return state;
