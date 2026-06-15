@@ -79,7 +79,9 @@ export default function StudentHome() {
 
     return (
         <div className="tests-page">
-            <div className="test-page student-logout"><LogoutButton /></div>
+            <div className="test-page" style={{ position: "absolute", left: "1430px", top: "0px" }}>
+                <LogoutButton />
+            </div>
             <div className="create-wrapper2">
                 <div className="test">
                     <div className="tests-tabs">

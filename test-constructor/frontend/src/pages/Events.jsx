@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import "../styles/tests.css";
 import LogoutButton from "../components/LogoutButton.jsx";
 import { useNavigate } from "react-router-dom";
 
@@ -9,6 +8,7 @@ import CandidatesIcon from "../assets/Candidates.svg?react";
 import SettingsIcon from "../assets/settings.svg?react";
 import StatisticsIcon from "../assets/statistics2.svg?react";
 import { eventsAPI } from "../services/api";
+import "../styles/tests.css";
 
 export default function Events() {
     const navigate = useNavigate();
@@ -43,7 +43,9 @@ export default function Events() {
 
     return (
         <div className="tests-page">
-            <LogoutButton />
+            <>
+                <LogoutButton />
+            </>
             <div className="tests-wrapper">
                 <div className="tests">
                     <div className="tests-tabs">

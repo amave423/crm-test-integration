@@ -13,8 +13,8 @@ import korzinaIcon from '../assets/korzina.svg';
 import massageIcon from '../assets/message.svg';
 
 const DEFAULT_CRITERIA = [
-    { threshold: 75, message: 'Тест пройден', extraTests: [] },
-    { threshold: 50, message: 'Назначить дополнительный тест', extraTests: [] },
+    { threshold: 0, message: 'Тест пройден', extraTests: [] },
+    { threshold: 0, message: 'Назначить дополнительный тест', extraTests: [] },
 ];
 
 function createDefaultConfig(selectedSpec = '') {
@@ -25,6 +25,7 @@ function createDefaultConfig(selectedSpec = '') {
         time: { hours: 1, minutes: 0, seconds: 0 },
         isTimeEnabled: true,
         shareLink: '',
+        isExtraTest: false,
     };
 }
 
@@ -66,6 +67,7 @@ function normalizeEventConfigsPayload(data) {
             threshold: Number(config.threshold || 75),
             testLink: config.test_link || config.testLink || '',
             extraThreshold: Array.isArray(config.extra_threshold) ? config.extra_threshold : (config.extraThreshold || []),
+            isExtra: config.is_extra || config.isExtra || false,
         }))
         .filter(config => Number.isFinite(config.configId) && Number.isFinite(config.testId));
 }
@@ -104,6 +106,7 @@ function configFromBackend(config, defaultSpec) {
         time: secondsToTime(config.timeLimit),
         isTimeEnabled: config.timeLimit > 0,
         shareLink: config.testLink ? `${window.location.origin}/test/${config.testLink}` : '',
+        isExtraTest: config.isExtra || false,
     };
 }
 
@@ -215,7 +218,21 @@ export default function EventConfigPage() {
 
     const updateCurrentConfig = (field, value) => {
         if (!selectedTestId) return;
-        updateConfig(selectedTestId, { [field]: value });
+
+        if (field === 'isExtraTest') {
+            if (value) {
+                const nonZeroSpec = specializations.find(s => s.id !== 0);
+                updateConfig(selectedTestId, (config) => ({
+                    ...config,
+                    isExtraTest: value,
+                    selectedSpec: nonZeroSpec ? String(nonZeroSpec.id) : config.selectedSpec
+                }));
+            } else {
+                updateConfig(selectedTestId, { isExtraTest: value });
+            }
+        } else {
+            updateConfig(selectedTestId, { [field]: value });
+        }
     };
 
     const openModal = (target) => {
@@ -318,6 +335,7 @@ export default function EventConfigPage() {
             time_limit: config.isTimeEnabled ? timeToSeconds(config.time) : 0,
             threshold: mainThreshold,
             extra_threshold: extraThreshold,
+            is_extra: config.isExtraTest || false,
         };
     };
 
@@ -363,6 +381,10 @@ export default function EventConfigPage() {
     };
 
     const currentConfig = getCurrentConfig();
+
+    const getAvailableTestsForCriteria = () => {
+        return tests.filter(test => selectedTestIds.includes(Number(test.id)));
+    };
 
     return (
         <div className="event-config-page">
@@ -415,33 +437,62 @@ export default function EventConfigPage() {
             <div className="event-config-main">
                 {selectedTestId ? (
                     <>
-                        <SpecializationSelect
-                            specializations={specializations}
-                            selected={currentConfig.selectedSpec || defaultSpec}
-                            onChange={(value) => updateCurrentConfig('selectedSpec', value)}
-                        />
+                        <div className="extra-test-flag-block" style={{ marginBottom: '20px' }}>
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
+                                <input
+                                    type="checkbox"
+                                    checked={currentConfig.isExtraTest || false}
+                                    onChange={(e) => updateCurrentConfig('isExtraTest', e.target.checked)}
+                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+                                />
+                                <span style={{ color: '#F0E8D5', fontSize: '16px', fontWeight: '600' }}>
+                                    Это дополнительный тест?
+                                </span>
+                            </label>
+                        </div>
+
+                        {currentConfig.isExtraTest ? (
+                            <div style={{
+                                marginBottom: '20px',
+                                padding: '12px 16px',
+                                backgroundColor: '#2A2A2A',
+                                borderRadius: '8px',
+                                color: '#F0E8D5',
+                                fontSize: '14px',
+                                fontWeight: '500'
+                            }}>
+                                Все специализации
+                            </div>
+                        ) : (
+                            <SpecializationSelect
+                                specializations={specializations}
+                                selected={currentConfig.selectedSpec || defaultSpec}
+                                onChange={(value) => updateCurrentConfig('selectedSpec', value)}
+                            />
+                        )}
+
                         <div className="criteria-table-title">Критерий прохождения теста</div>
                         <CriteriaTable
                             criteria={currentConfig.criteria}
                             onChange={handleCriteriaChange}
                             onAdd={handleAddCriteria}
                             onAddTest={idx => openModal(idx)}
-                            tests={tests}
+                            tests={getAvailableTestsForCriteria()}
                             selectedTests={currentConfig.criteria.flatMap(row => row.extraTests || [])}
                             onDelete={handleDeleteCriteria}
                             onDeleteTest={handleDeleteTest}
                             maxScore={Number(tests.find(test => Number(test.id) === Number(selectedTestId))?.max_score || 100)}
                         />
-                        <div className="fail-message-label">
-                            <img src={massageIcon} alt="" className="fail-message-icon" />
-                            Сообщение при провальном прохождении теста
-                        </div>
-                        <div className="fail-message-input-wrap">
+                        <div className="fail-message-block">
+                            <div className="fail-message-header">
+                                <img src={massageIcon} alt="" style={{ width: '32px', height: '32px' }} />
+                                <p className="fail-message-title">Сообщение при провальном прохождении</p>
+                            </div>
                             <input
                                 type="text"
                                 placeholder="Введите текст сообщения при провальном прохождении..."
                                 value={currentConfig.failMessage}
-                                onChange={event => updateCurrentConfig('failMessage', event.target.value)}
+                                onChange={e => updateCurrentConfig('failMessage', e.target.value)}
                             />
                         </div>
                         <TimeBox
@@ -465,7 +516,7 @@ export default function EventConfigPage() {
 
             <SelectTestsModal
                 open={modalOpen}
-                tests={tests}
+                tests={modalTarget === 'main' ? tests : getAvailableTestsForCriteria()}
                 selected={modalSelected}
                 onSelect={handleToggleModalSelected}
                 onClose={() => setModalOpen(false)}

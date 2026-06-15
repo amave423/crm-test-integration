@@ -74,12 +74,14 @@ export default function MyTestStudent() {
         if (eventId) params.set("event_id", String(eventId));
         if (specializationId) params.set("specialization_id", String(specializationId));
         if (applicationId) params.set("application_id", String(applicationId));
-        navigate(`/test-preview/${test.test_link}?${params.toString()}`, { state: { test } });
+        navigate(`/test/${test.test_link}?${params.toString()}`, { state: { test } });
     };
 
     return (
         <div className="tests-page">
-            <div className="test-page student-logout"><LogoutButton /></div>
+            <div className="test-page" style={{ position: "absolute", left: "1430px", top: "0px" }}>
+                <LogoutButton />
+            </div>
             <div className="create-wrapper2">
                 <div className="test">
                     <div className="mytests-header">

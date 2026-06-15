@@ -74,8 +74,8 @@ export default function TestPreviewPage() {
     }
 
     return (
-        <div className="test-preview-page">
-            <div className="test-preview-header"><LogoutButton /></div>
+        <div className="tests-page">
+            <div className="test-page student-logout"><LogoutButton /></div>
             <div className="test-preview-wrapper">
                 <div className="test-preview-container">
                     <div className="preview-title-section">

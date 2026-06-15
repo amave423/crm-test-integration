@@ -122,14 +122,6 @@ const LogoutButton = () => {
                                 </p>
                             </div>
 
-                            <div className="logout-actions">
-                                <button
-                                    className="logout-confirm-btn"
-                                    onClick={handleLogout}
-                                >
-                                    Выйти из аккаунта
-                                </button>
-                            </div>
                         </div>
                     </div>
                 </>
