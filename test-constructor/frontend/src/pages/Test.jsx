@@ -245,10 +245,6 @@ export default function Tests() {
                                                         <EditIcon className="menu-icon" />
                                                         <span>Редактировать</span>
                                                     </button>
-                                                    <button className="menu-item" onClick={() => viewStatistics(test)}>
-                                                        <StatisticsIcon className="menu-icon" />
-                                                        <span>Статистика</span>
-                                                    </button>
                                                     <button className="menu-item" onClick={() => openDeleteConfirm(test)}>
                                                         <DeleteIcon className="menu-icon" />
                                                         <span>Удалить тест</span>

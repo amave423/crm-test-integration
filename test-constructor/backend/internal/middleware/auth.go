@@ -11,29 +11,29 @@ type contextKey string
 
 const UserContextKey contextKey = "user"
 
-func AuthMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		authHeader := r.Header.Get("Authorization")
-		if authHeader == "" {
-			http.Error(w, "Пользователь не авторизован", http.StatusUnauthorized)
-			return
-		}
+func AuthMiddleware(jwtService auth.JWTService) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			authHeader := r.Header.Get("Authorization")
+			if authHeader == "" {
+				http.Error(w, "Пользователь не авторизован", http.StatusUnauthorized)
+				return
+			}
 
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			http.Error(w, "Invalid token format", http.StatusUnauthorized)
-			return
-		}
+			tokenParts := strings.Split(authHeader, " ")
+			if len(tokenParts) != 2 || tokenParts[0] != "Bearer" {
+				http.Error(w, "Неверный формат токена", http.StatusUnauthorized)
+				return
+			}
 
-		tokenString := parts[1]
+			claims, err := jwtService.ValidateToken(tokenParts[1])
+			if err != nil {
+				http.Error(w, "Недействительный токен", http.StatusUnauthorized)
+				return
+			}
 
-		claims, err := auth.ValidateJWT(tokenString)
-		if err != nil {
-			http.Error(w, "Invalid or expired token", http.StatusUnauthorized)
-			return
-		}
-
-		ctx := context.WithValue(r.Context(), UserContextKey, claims)
-		next.ServeHTTP(w, r.WithContext(ctx))
-	})
+			ctx := context.WithValue(r.Context(), UserContextKey, claims)
+			next.ServeHTTP(w, r.WithContext(ctx))
+		})
+	}
 }

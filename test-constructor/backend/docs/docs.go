@@ -19,10 +19,10 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Создать нового организатора",
+                "description": "Создает нового пользователя с ролью \"manager\" (только для админа)",
                 "consumes": [
                     "application/json"
                 ],
@@ -35,20 +35,87 @@ const docTemplate = `{
                 "summary": "Создать организатора",
                 "parameters": [
                     {
-                        "description": "Manager object",
-                        "name": "test",
+                        "description": "Данные организатора",
+                        "name": "user",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/admin.CreateManagerRequest"
+                            "$ref": "#/definitions/dto.CreateUserRequest"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Организатор создан",
                         "schema": {
-                            "$ref": "#/definitions/admin.CreateManagerResponse"
+                            "$ref": "#/definitions/dto.CreateUserResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Ошибка валидации",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Нет прав (не админ)",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Пользователь уже существует",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/intern/attempt/active": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает данные текущей незавершённой попытки пользователя",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "attempts"
+                ],
+                "summary": "Получить активную попытку",
+                "responses": {
+                    "200": {
+                        "description": "Активная попытка",
+                        "schema": {
+                            "$ref": "#/definitions/dto.StartAttemptResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Нет активной попытки",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -58,10 +125,10 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Получение ответов стажёра",
+                "description": "Проверяет ответы пользователя и завершает активную попытку",
                 "consumes": [
                     "application/json"
                 ],
@@ -69,25 +136,95 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "intern"
+                    "attempts"
                 ],
                 "summary": "Завершить тест",
                 "parameters": [
                     {
-                        "description": "Answers object",
+                        "description": "Ответы пользователя",
                         "name": "answers",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/intern.FinishAttemptRequest"
+                            "$ref": "#/definitions/dto.FinishAttemptRequest"
                         }
                     }
                 ],
                 "responses": {
-                    "201": {
-                        "description": "Created",
+                    "200": {
+                        "description": "Результаты проверки",
                         "schema": {
-                            "$ref": "#/definitions/intern.FinishAttemptResponse"
+                            "$ref": "#/definitions/dto.FinishAttemptResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Ошибка валидации",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Активная попытка не найдена",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/intern/tests/selection": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает список доступных тестов для мероприятия с учётом замен",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "attempts"
+                ],
+                "summary": "Получить список тестов",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Event ID",
+                        "name": "event_id",
+                        "in": "query",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Список тестов",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TestSelectionResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Ошибка валидации",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Пользователь не записан на мероприятие",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -97,10 +234,10 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Создание попытки по ссылке конфигурации мероприятия",
+                "description": "Создаёт новую попытку прохождения теста по ссылке конфигурации",
                 "consumes": [
                     "application/json"
                 ],
@@ -108,32 +245,142 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "intern"
+                    "attempts"
                 ],
-                "summary": "Пройти тест через конфигурацию мероприятия",
+                "summary": "Начать тест",
                 "parameters": [
                     {
-                        "description": "Start attempt object",
-                        "name": "answers",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/intern.StartAttemptRequest"
-                        }
-                    },
-                    {
                         "type": "string",
-                        "description": "Ссылка конфигурации теста",
+                        "description": "Ссылка конфигурации теста (UUID)",
                         "name": "link",
                         "in": "path",
                         "required": true
+                    },
+                    {
+                        "description": "Данные для начала попытки",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.StartAttemptRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Попытка создана",
+                        "schema": {
+                            "$ref": "#/definitions/dto.StartAttemptResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Ошибка валидации",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Нет доступа к тесту",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Тест не найден",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Уже есть активная попытка или тест пройден",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/intern/users/events": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Возвращает список мероприятий, на которые записан пользователь",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user-events"
+                ],
+                "summary": "Получить мероприятия пользователя",
+                "responses": {
+                    "200": {
+                        "description": "Список мероприятий",
+                        "schema": {
+                            "$ref": "#/definitions/dto.UserEventsListResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Создает связь между пользователем и мероприятием",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "user-events"
+                ],
+                "summary": "Записаться на мероприятие",
+                "parameters": [
+                    {
+                        "description": "Данные мероприятия",
+                        "name": "body",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/dto.CreateUserEventRequest"
+                        }
                     }
                 ],
                 "responses": {
                     "201": {
                         "description": "Created",
                         "schema": {
-                            "$ref": "#/definitions/intern.StartAttemptResponse"
+                            "type": "string"
+                        }
+                    },
+                    "400": {
+                        "description": "Ошибка валидации",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "409": {
+                        "description": "Уже записан",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -143,31 +390,34 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Получить список мероприятий",
+                "description": "Получает список всех мероприятий из CRM",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "manager"
+                    "events"
                 ],
                 "summary": "Получить мероприятия",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Список мероприятий",
                         "schema": {
-                            "$ref": "#/definitions/manager.Event"
+                            "$ref": "#/definitions/dto.EventsListResponse"
                         }
                     },
-                    "404": {
-                        "description": "Not Found",
+                    "401": {
+                        "description": "Не авторизован",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Ошибка сервера",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -175,9 +425,10 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
+                "description": "Создает новую конфигурацию тестирования для мероприятия",
                 "consumes": [
                     "application/json"
                 ],
@@ -185,26 +436,51 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "manager"
+                    "events"
                 ],
-                "summary": "Создать настройку мероприятия",
+                "summary": "Создать конфигурацию мероприятия",
                 "parameters": [
                     {
-                        "description": "EventCfg object",
-                        "name": "test",
+                        "description": "Конфигурация",
+                        "name": "config",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/manager.EventCfgInfo"
+                            "$ref": "#/definitions/dto.CreateEventConfigRequest"
+                        }
+                    },
+                    {
+                        "description": "Specialization ID (0 = общий тест)",
+                        "name": "specialization_id",
+                        "in": "body",
+                        "schema": {
+                            "type": "integer"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Конфигурация создана",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.CreateEventConfigResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Ошибка валидации",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -214,9 +490,10 @@ const docTemplate = `{
             "put": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
+                "description": "Обновляет существующую конфигурацию мероприятия",
                 "consumes": [
                     "application/json"
                 ],
@@ -224,9 +501,9 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "manager"
+                    "events"
                 ],
-                "summary": "Обновить настройку мероприятия",
+                "summary": "Обновить конфигурацию",
                 "parameters": [
                     {
                         "type": "integer",
@@ -236,21 +513,38 @@ const docTemplate = `{
                         "required": true
                     },
                     {
-                        "description": "EventCfg object",
-                        "name": "test",
+                        "description": "Обновленная конфигурация",
+                        "name": "config",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/manager.EventCfgInfo"
+                            "$ref": "#/definitions/dto.UpdateEventConfigRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Конфигурация обновлена",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.UpdateEventConfigResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Ошибка валидации",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "403": {
+                        "description": "Нет прав",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Не найдена",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -260,18 +554,15 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Получение списка специализаций конкретного мероприятия",
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "Получает список специализаций конкретного мероприятия из CRM",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "manager"
+                    "events"
                 ],
                 "summary": "Получить специализации мероприятия",
                 "parameters": [
@@ -285,27 +576,84 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Список специализаций",
                         "schema": {
-                            "$ref": "#/definitions/manager.EventSpecializationsResponse"
+                            "$ref": "#/definitions/dto.EventSpecializationsListResponse"
                         }
                     },
                     "400": {
-                        "description": "Bad Request",
+                        "description": "Неверный ID",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     },
                     "404": {
-                        "description": "Not Found",
+                        "description": "Мероприятие не найдено",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/manager/events/{id}/statistics": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Получить статистику всех попыток по мероприятию",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "statistics"
+                ],
+                "summary": "Статистика мероприятия",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "Event ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Фильтр по дополнительным тестам",
+                        "name": "is_extra",
+                        "in": "body",
+                        "schema": {
+                            "type": "boolean"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Статистика мероприятия",
+                        "schema": {
+                            "$ref": "#/definitions/dto.StatisticsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверный ID",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Мероприятие не найдено",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -315,31 +663,34 @@ const docTemplate = `{
             "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Получить список тестов",
+                "description": "Возвращает список тестов.",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "manager"
+                    "tests"
                 ],
-                "summary": "Получить тесты для организотора",
+                "summary": "Получить тесты",
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Список тестов",
                         "schema": {
-                            "$ref": "#/definitions/manager.TestsInfoResponse"
+                            "$ref": "#/definitions/dto.TestsListResponse"
                         }
                     },
-                    "404": {
-                        "description": "Not Found",
+                    "401": {
+                        "description": "Не авторизован",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
@@ -347,10 +698,10 @@ const docTemplate = `{
             "post": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "description": "Создать новый тест",
+                "description": "Создает новый тест с вопросами",
                 "consumes": [
                     "application/json"
                 ],
@@ -358,51 +709,65 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "manager"
+                    "tests"
                 ],
                 "summary": "Создать тест",
                 "parameters": [
                     {
-                        "description": "Test object",
+                        "description": "Данные теста",
                         "name": "test",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/manager.CreateTestInfo"
+                            "$ref": "#/definitions/dto.CreateTestRequest"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Тест создан",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/dto.CreateTestResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Ошибка валидации",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
                         }
                     }
                 }
             }
         },
-        "/api/manager/tests/delete/{id}": {
-            "post": {
+        "/api/manager/tests/{id}": {
+            "get": {
                 "security": [
                     {
-                        "ApiKeyAuth": []
+                        "BearerAuth": []
                     }
                 ],
-                "consumes": [
-                    "application/json"
-                ],
+                "description": "Возвращает тест с вопросами по ID",
                 "produces": [
                     "application/json"
                 ],
                 "tags": [
-                    "manager"
+                    "tests"
                 ],
-                "summary": "Удалить тест",
+                "summary": "Получить тест",
                 "parameters": [
                     {
-                        "minimum": 1,
                         "type": "integer",
                         "description": "ID теста",
                         "name": "id",
@@ -412,14 +777,156 @@ const docTemplate = `{
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK"
+                        "description": "Детали теста",
+                        "schema": {
+                            "$ref": "#/definitions/dto.TestDetailResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Тест не найден",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Удаляет тест по ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "tests"
+                ],
+                "summary": "Удалить тест",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "ID теста",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Тест удален",
+                        "schema": {
+                            "$ref": "#/definitions/dto.DeleteTestResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Тест не найден",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/manager/users": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Получить список всех пользователей с ролью \"intern\"",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "statistics"
+                ],
+                "summary": "Список стажёров",
+                "responses": {
+                    "200": {
+                        "description": "Список стажёров",
+                        "schema": {
+                            "$ref": "#/definitions/dto.GetUsersResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/manager/users/{id}": {
+            "get": {
+                "security": [
+                    {
+                        "BearerAuth": []
+                    }
+                ],
+                "description": "Получить статистику всех попыток пользователя",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "statistics"
+                ],
+                "summary": "Статистика пользователя",
+                "parameters": [
+                    {
+                        "type": "integer",
+                        "description": "User ID",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "Статистика пользователя",
+                        "schema": {
+                            "$ref": "#/definitions/dto.UserStatisticsResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Неверный ID",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "401": {
+                        "description": "Не авторизован",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
+                    },
+                    "404": {
+                        "description": "Пользователь не найден",
+                        "schema": {
+                            "$ref": "#/definitions/dto.ErrorResponse"
+                        }
                     }
                 }
             }
         },
         "/login": {
             "post": {
-                "description": "Логин",
+                "description": "Авторизация пользователя по email и паролю",
                 "consumes": [
                     "application/json"
                 ],
@@ -427,25 +934,43 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "auth"
                 ],
-                "summary": "Вход",
+                "summary": "Вход в систему",
                 "parameters": [
                     {
-                        "description": "User object",
-                        "name": "user",
+                        "description": "Учетные данные",
+                        "name": "credentials",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/auth.LoginRequest"
+                            "$ref": "#/definitions/dto.LoginRequest"
                         }
                     }
                 ],
                 "responses": {
                     "200": {
-                        "description": "OK",
+                        "description": "Успешный вход",
                         "schema": {
-                            "$ref": "#/definitions/auth.LoginResponse"
+                            "$ref": "#/definitions/dto.LoginResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Не все поля заполнены",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "401": {
+                        "description": "Неверный логин или пароль",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
@@ -453,7 +978,7 @@ const docTemplate = `{
         },
         "/register": {
             "post": {
-                "description": "Создать нового пользователя",
+                "description": "Создает нового пользователя с ролью \"intern\"",
                 "consumes": [
                     "application/json"
                 ],
@@ -461,25 +986,43 @@ const docTemplate = `{
                     "application/json"
                 ],
                 "tags": [
-                    "users"
+                    "auth"
                 ],
-                "summary": "Создать пользователя",
+                "summary": "Регистрация пользователя",
                 "parameters": [
                     {
-                        "description": "User object",
+                        "description": "Данные для регистрации",
                         "name": "user",
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/auth.RegisterRequest"
+                            "$ref": "#/definitions/dto.RegisterRequest"
                         }
                     }
                 ],
                 "responses": {
                     "201": {
-                        "description": "Created",
+                        "description": "Пользователь успешно создан",
                         "schema": {
-                            "$ref": "#/definitions/auth.RegisterResponse"
+                            "$ref": "#/definitions/dto.RegisterResponse"
+                        }
+                    },
+                    "400": {
+                        "description": "Не все поля заполнены",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "409": {
+                        "description": "Пользователь уже существует",
+                        "schema": {
+                            "type": "string"
+                        }
+                    },
+                    "500": {
+                        "description": "Внутренняя ошибка сервера",
+                        "schema": {
+                            "type": "string"
                         }
                     }
                 }
@@ -487,172 +1030,29 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "admin.CreateManagerRequest": {
+        "domain.ChoiceOption": {
             "type": "object",
             "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "surname": {
-                    "type": "string"
-                }
-            }
-        },
-        "admin.CreateManagerResponse": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "surname": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "auth.LoginRequest": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.LoginResponse": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "surname": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "auth.RegisterRequest": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "password": {
-                    "type": "string"
-                },
-                "surname": {
-                    "type": "string"
-                }
-            }
-        },
-        "auth.RegisterResponse": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string"
-                },
-                "message": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "role": {
-                    "type": "string"
-                },
-                "surname": {
-                    "type": "string"
-                },
-                "token": {
-                    "type": "string"
-                },
-                "user_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "intern.FinishAttemptRequest": {
-            "type": "object",
-            "properties": {
-                "userAnswers": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/intern.UserAnswerInfo"
-                    }
-                }
-            }
-        },
-        "intern.FinishAttemptResponse": {
-            "type": "object",
-            "properties": {
-                "max_test_points": {
-                    "type": "integer"
-                },
-                "passed": {
+                "is_true": {
                     "type": "boolean"
                 },
-                "result": {
+                "text": {
                     "type": "string"
-                },
-                "score": {
-                    "type": "integer"
                 }
             }
         },
-        "intern.PublicMatching": {
+        "domain.MatchingPair": {
             "type": "object",
             "properties": {
                 "left": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                    "type": "string"
                 },
                 "right": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
+                    "type": "string"
                 }
             }
         },
-        "intern.PublicOptions": {
+        "domain.QuestionOptions": {
             "type": "object",
             "properties": {
                 "case_sensitive": {
@@ -661,175 +1061,41 @@ const docTemplate = `{
                 "choice": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/domain.ChoiceOption"
                     }
                 },
-                "matching": {
-                    "$ref": "#/definitions/intern.PublicMatching"
-                },
-                "sequence": {
+                "correct_input": {
                     "type": "array",
                     "items": {
                         "type": "string"
-                    }
-                }
-            }
-        },
-        "intern.QuestionInfo": {
-            "type": "object",
-            "properties": {
-                "options": {
-                    "$ref": "#/definitions/intern.PublicOptions"
-                },
-                "order_number": {
-                    "type": "integer"
-                },
-                "points": {
-                    "type": "integer"
-                },
-                "question_id": {
-                    "type": "integer"
-                },
-                "text": {
-                    "type": "string"
-                },
-                "type": {
-                    "$ref": "#/definitions/models.QType"
-                }
-            }
-        },
-        "intern.StartAttemptRequest": {
-            "type": "object",
-            "properties": {
-                "application_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "intern.StartAttemptResponse": {
-            "type": "object",
-            "properties": {
-                "application_id": {
-                    "type": "integer"
-                },
-                "config_id": {
-                    "type": "integer"
-                },
-                "description": {
-                    "type": "string"
-                },
-                "questions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/intern.QuestionInfo"
-                    }
-                },
-                "test_id": {
-                    "type": "integer"
-                },
-                "threshold": {
-                    "type": "number"
-                },
-                "time_limit": {
-                    "type": "integer"
-                },
-                "title": {
-                    "type": "string"
-                }
-            }
-        },
-        "intern.UserAnswer": {
-            "type": "object",
-            "properties": {
-                "choices": {
-                    "type": "array",
-                    "items": {
-                        "type": "boolean"
                     }
                 },
                 "matching": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.MatchingPair"
+                        "$ref": "#/definitions/domain.MatchingPair"
                     }
                 },
                 "sequence": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.SequenceItem"
+                        "$ref": "#/definitions/domain.SequenceItem"
                     }
-                },
-                "user_input": {
-                    "type": "string"
                 }
             }
         },
-        "intern.UserAnswerInfo": {
+        "domain.SequenceItem": {
             "type": "object",
             "properties": {
-                "answer": {
-                    "$ref": "#/definitions/intern.UserAnswer"
-                },
-                "question_id": {
-                    "type": "integer"
-                }
-            }
-        },
-        "manager.CreateQuestionInfo": {
-            "type": "object",
-            "properties": {
-                "options": {
-                    "$ref": "#/definitions/models.QuestionOptions"
-                },
-                "order_number": {
-                    "type": "integer"
-                },
-                "points": {
+                "order": {
                     "type": "integer"
                 },
                 "text": {
                     "type": "string"
-                },
-                "type": {
-                    "type": "string"
                 }
             }
         },
-        "manager.CreateTestInfo": {
-            "type": "object",
-            "properties": {
-                "description": {
-                    "type": "string"
-                },
-                "is_extra": {
-                    "type": "boolean"
-                },
-                "questions": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/manager.CreateQuestionInfo"
-                    }
-                },
-                "title": {
-                    "type": "string"
-                }
-            }
-        },
-        "manager.Event": {
-            "type": "object",
-            "properties": {
-                "end_date": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "start_date": {
-                    "type": "string"
-                }
-            }
-        },
-        "manager.EventCfgInfo": {
+        "dto.CreateEventConfigRequest": {
             "type": "object",
             "properties": {
                 "event_id": {
@@ -838,7 +1104,7 @@ const docTemplate = `{
                 "extra_threshold": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/manager.ExtraThresholdInfo"
+                        "$ref": "#/definitions/dto.ExtraThresholdRequest"
                     }
                 },
                 "fail_text": {
@@ -854,37 +1120,217 @@ const docTemplate = `{
                     "type": "integer"
                 },
                 "threshold": {
-                    "type": "number"
+                    "type": "integer"
                 },
                 "time_limit": {
                     "type": "integer"
                 }
             }
         },
-        "manager.EventSpecializationsResponse": {
+        "dto.CreateEventConfigResponse": {
             "type": "object",
             "properties": {
-                "end_date": {
-                    "type": "string"
-                },
-                "event_id": {
+                "config_id": {
                     "type": "integer"
                 },
-                "event_name": {
-                    "type": "string"
-                },
-                "specializations": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/manager.Specialization"
-                    }
-                },
-                "start_date": {
+                "message": {
                     "type": "string"
                 }
             }
         },
-        "manager.ExtraThresholdInfo": {
+        "dto.CreateQuestionRequest": {
+            "type": "object",
+            "properties": {
+                "options": {
+                    "$ref": "#/definitions/domain.QuestionOptions"
+                },
+                "order_number": {
+                    "type": "integer"
+                },
+                "points": {
+                    "type": "integer"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CreateTestRequest": {
+            "type": "object",
+            "properties": {
+                "description": {
+                    "type": "string"
+                },
+                "questions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.CreateQuestionRequest"
+                    }
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CreateTestResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CreateUserEventRequest": {
+            "type": "object",
+            "properties": {
+                "application_id": {
+                    "type": "integer"
+                },
+                "event_id": {
+                    "type": "integer"
+                },
+                "specialization_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.CreateUserRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CreateUserResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.DeleteTestResponse": {
+            "type": "object",
+            "properties": {
+                "message": {
+                    "type": "string",
+                    "example": "Тест удален"
+                }
+            }
+        },
+        "dto.ErrorResponse": {
+            "type": "object",
+            "properties": {
+                "error": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.EventResponse": {
+            "type": "object",
+            "properties": {
+                "end_date": {
+                    "type": "string",
+                    "example": "2024-12-02T00:00:00Z"
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Хакатон 2024"
+                },
+                "specializations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.EventSpecializationResponse"
+                    }
+                },
+                "start_date": {
+                    "type": "string",
+                    "example": "2024-12-01T00:00:00Z"
+                },
+                "total_tests": {
+                    "type": "integer",
+                    "example": 5
+                }
+            }
+        },
+        "dto.EventSpecializationResponse": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "name": {
+                    "type": "string",
+                    "example": "Frontend Developer"
+                }
+            }
+        },
+        "dto.EventSpecializationsListResponse": {
+            "type": "object",
+            "properties": {
+                "event_id": {
+                    "type": "integer",
+                    "example": 1
+                },
+                "specializations": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.EventSpecializationResponse"
+                    }
+                }
+            }
+        },
+        "dto.EventsListResponse": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.EventResponse"
+                    }
+                },
+                "total": {
+                    "type": "integer",
+                    "example": 10
+                }
+            }
+        },
+        "dto.ExtraThresholdRequest": {
             "type": "object",
             "properties": {
                 "message": {
@@ -893,27 +1339,403 @@ const docTemplate = `{
                 "test_id": {
                     "type": "integer"
                 },
+                "test_threshold": {
+                    "type": "integer"
+                },
                 "threshold": {
-                    "type": "number"
+                    "type": "integer"
                 }
             }
         },
-        "manager.Specialization": {
+        "dto.FinishAttemptRequest": {
+            "type": "object",
+            "properties": {
+                "user_answers": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.UserAnswerInfo"
+                    }
+                }
+            }
+        },
+        "dto.FinishAttemptResponse": {
+            "type": "object",
+            "properties": {
+                "all_completed": {
+                    "type": "boolean"
+                },
+                "max_test_points": {
+                    "type": "integer"
+                },
+                "passed": {
+                    "type": "boolean"
+                },
+                "result": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.GetUsersResponse": {
+            "type": "object",
+            "properties": {
+                "users": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.UserInfo"
+                    }
+                }
+            }
+        },
+        "dto.LoginRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.LoginResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.MatchingPair": {
+            "type": "object",
+            "properties": {
+                "left": {
+                    "type": "string"
+                },
+                "right": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.PublicMatching": {
+            "type": "object",
+            "properties": {
+                "left": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "right": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "dto.PublicOptions": {
+            "type": "object",
+            "properties": {
+                "case_sensitive": {
+                    "type": "boolean"
+                },
+                "choices": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "matching": {
+                    "$ref": "#/definitions/dto.PublicMatching"
+                },
+                "sequence": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                }
+            }
+        },
+        "dto.QuestionPublic": {
+            "type": "object",
+            "properties": {
+                "options": {
+                    "$ref": "#/definitions/dto.PublicOptions"
+                },
+                "order_number": {
+                    "type": "integer"
+                },
+                "points": {
+                    "type": "integer"
+                },
+                "question_id": {
+                    "type": "integer"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "type": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.QuestionResponse": {
             "type": "object",
             "properties": {
                 "id": {
                     "type": "integer"
                 },
-                "name": {
+                "options": {
+                    "$ref": "#/definitions/domain.QuestionOptions"
+                },
+                "order_number": {
+                    "type": "integer"
+                },
+                "points": {
+                    "type": "integer"
+                },
+                "text": {
+                    "type": "string"
+                },
+                "type": {
                     "type": "string"
                 }
             }
         },
-        "manager.TestInfo": {
+        "dto.QuestionStatInfo": {
+            "type": "object",
+            "properties": {
+                "is_correct": {
+                    "type": "boolean"
+                },
+                "max_points": {
+                    "type": "integer"
+                },
+                "order_number": {
+                    "type": "integer"
+                },
+                "points_earned": {
+                    "type": "integer"
+                },
+                "question_type": {
+                    "type": "string"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.RegisterRequest": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "password": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.RegisterResponse": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "message": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "role": {
+                    "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                },
+                "token": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.SequenceItem": {
+            "type": "object",
+            "properties": {
+                "order": {
+                    "type": "integer"
+                },
+                "text": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.StartAttemptRequest": {
+            "type": "object",
+            "properties": {
+                "application_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.StartAttemptResponse": {
+            "type": "object",
+            "properties": {
+                "attempt_id": {
+                    "type": "integer"
+                },
+                "config_id": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "questions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.QuestionPublic"
+                    }
+                },
+                "test_id": {
+                    "type": "integer"
+                },
+                "threshold": {
+                    "type": "integer"
+                },
+                "time_limit": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.StatisticsResponse": {
+            "type": "object",
+            "properties": {
+                "attempts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.UserAttemptInfo"
+                    }
+                }
+            }
+        },
+        "dto.TestDetailResponse": {
             "type": "object",
             "properties": {
                 "creator_id": {
                     "type": "integer"
+                },
+                "creator_name": {
+                    "type": "string"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "questions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.QuestionResponse"
+                    }
+                },
+                "test_id": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.TestInfo": {
+            "type": "object",
+            "properties": {
+                "attempt_id": {
+                    "type": "integer"
+                },
+                "config_id": {
+                    "type": "integer"
+                },
+                "description": {
+                    "type": "string"
+                },
+                "is_common": {
+                    "type": "boolean"
+                },
+                "is_extra": {
+                    "type": "boolean"
+                },
+                "max_score": {
+                    "type": "integer"
+                },
+                "passed": {
+                    "type": "boolean"
+                },
+                "replaced_test_id": {
+                    "type": "integer"
+                },
+                "replaced_title": {
+                    "type": "string"
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "status": {
+                    "description": "available, locked, in_progress, completed",
+                    "type": "string"
+                },
+                "test_id": {
+                    "type": "integer"
+                },
+                "test_link": {
+                    "type": "string"
+                },
+                "time_limit": {
+                    "type": "integer"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.TestResponse": {
+            "type": "object",
+            "properties": {
+                "creator_id": {
+                    "type": "integer"
+                },
+                "creator_name": {
+                    "type": "string"
                 },
                 "description": {
                     "type": "string"
@@ -926,102 +1748,259 @@ const docTemplate = `{
                 }
             }
         },
-        "manager.TestsInfoResponse": {
+        "dto.TestSelectionResponse": {
+            "type": "object",
+            "properties": {
+                "all_completed": {
+                    "type": "boolean"
+                },
+                "event_id": {
+                    "type": "integer"
+                },
+                "event_passed": {
+                    "type": "boolean"
+                },
+                "specialization_id": {
+                    "type": "integer"
+                },
+                "tests": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.TestInfo"
+                    }
+                }
+            }
+        },
+        "dto.TestsListResponse": {
             "type": "object",
             "properties": {
                 "tests": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/manager.TestInfo"
+                        "$ref": "#/definitions/dto.TestResponse"
                     }
                 }
             }
         },
-        "models.ChoiceOption": {
+        "dto.UpdateEventConfigRequest": {
             "type": "object",
             "properties": {
-                "is_true": {
-                    "type": "boolean"
+                "event_id": {
+                    "type": "integer"
                 },
-                "text": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.MatchingPair": {
-            "type": "object",
-            "properties": {
-                "left": {
-                    "type": "string"
-                },
-                "right": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.QType": {
-            "type": "string",
-            "enum": [
-                "single_choice",
-                "multiple_choice",
-                "text_input",
-                "matching",
-                "correct_order"
-            ],
-            "x-enum-varnames": [
-                "SingleChoice",
-                "MultipleChoice",
-                "TextInput",
-                "Matching",
-                "CorrectOrder"
-            ]
-        },
-        "models.QuestionOptions": {
-            "type": "object",
-            "properties": {
-                "case_sensitive": {
-                    "type": "boolean"
-                },
-                "choice": {
+                "extra_threshold": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.ChoiceOption"
+                        "$ref": "#/definitions/dto.ExtraThresholdRequest"
                     }
                 },
-                "correct_input": {
+                "fail_text": {
+                    "type": "string"
+                },
+                "specialization_id": {
+                    "type": "integer"
+                },
+                "success_text": {
+                    "type": "string"
+                },
+                "test_id": {
+                    "type": "integer"
+                },
+                "threshold": {
+                    "type": "integer"
+                },
+                "time_limit": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.UpdateEventConfigResponse": {
+            "type": "object",
+            "properties": {
+                "config_id": {
+                    "type": "integer"
+                },
+                "message": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.UserAnswer": {
+            "type": "object",
+            "properties": {
+                "choices": {
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "type": "boolean"
                     }
                 },
                 "matching": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.MatchingPair"
+                        "$ref": "#/definitions/dto.MatchingPair"
                     }
                 },
                 "sequence": {
                     "type": "array",
                     "items": {
-                        "$ref": "#/definitions/models.SequenceItem"
+                        "$ref": "#/definitions/dto.SequenceItem"
+                    }
+                },
+                "user_input": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.UserAnswerInfo": {
+            "type": "object",
+            "properties": {
+                "answer": {
+                    "$ref": "#/definitions/dto.UserAnswer"
+                },
+                "question_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.UserAttemptDetail": {
+            "type": "object",
+            "properties": {
+                "attempt_id": {
+                    "type": "integer"
+                },
+                "event_name": {
+                    "type": "string"
+                },
+                "is_extra": {
+                    "type": "boolean"
+                },
+                "max_score": {
+                    "type": "integer"
+                },
+                "passed": {
+                    "type": "boolean"
+                },
+                "questions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.QuestionStatInfo"
+                    }
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "test_title": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.UserAttemptInfo": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "is_extra": {
+                    "type": "boolean"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "max_score": {
+                    "type": "integer"
+                },
+                "passed": {
+                    "type": "boolean"
+                },
+                "questions": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.QuestionStatInfo"
+                    }
+                },
+                "score": {
+                    "type": "integer"
+                },
+                "time_spent_minutes": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.UserEventResponse": {
+            "type": "object",
+            "properties": {
+                "application_id": {
+                    "type": "integer"
+                },
+                "event_id": {
+                    "type": "integer"
+                },
+                "id": {
+                    "type": "integer"
+                },
+                "user_id": {
+                    "type": "integer"
+                }
+            }
+        },
+        "dto.UserEventsListResponse": {
+            "type": "object",
+            "properties": {
+                "events": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.UserEventResponse"
                     }
                 }
             }
         },
-        "models.SequenceItem": {
+        "dto.UserInfo": {
             "type": "object",
             "properties": {
-                "order": {
+                "id": {
                     "type": "integer"
                 },
-                "text": {
+                "name": {
                     "type": "string"
+                },
+                "surname": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.UserStatisticsResponse": {
+            "type": "object",
+            "properties": {
+                "attempts": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/dto.UserAttemptDetail"
+                    }
+                },
+                "email": {
+                    "type": "string"
+                },
+                "first_name": {
+                    "type": "string"
+                },
+                "last_name": {
+                    "type": "string"
+                },
+                "user_id": {
+                    "type": "integer"
                 }
             }
         }
     },
     "securityDefinitions": {
-        "ApiKeyAuth": {
+        "BearerAuth": {
+            "description": "Введите токен в формате: Bearer {ваш_токен}",
             "type": "apiKey",
             "name": "Authorization",
             "in": "header"
@@ -1035,8 +2014,8 @@ var SwaggerInfo = &swag.Spec{
 	Host:             "localhost:8080",
 	BasePath:         "/",
 	Schemes:          []string{},
-	Title:            "test constructor",
-	Description:      "backend part of test constructor",
+	Title:            "Test Constructor API",
+	Description:      "API для конструктора тестов",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 	LeftDelim:        "{{",

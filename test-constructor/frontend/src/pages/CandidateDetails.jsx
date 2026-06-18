@@ -102,7 +102,7 @@ export default function CandidateDetails() {
                                     <th>Мероприятие</th>
                                     <th>Дополнительный тест</th>
                                     <th>Баллы</th>
-                                    <th>Статистика</th>
+                                    <th>Результаты</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -144,7 +144,7 @@ export default function CandidateDetails() {
                     {selectedAttempt && (
                         <div className="stat-modal-overlay">
                             <div className="stat-modal">
-                                <h3>Подробная статистика</h3>
+                                <h3>Подробные результаты</h3>
 
                                 <div className="stat-details-user">
                                     <p><strong>Участник:</strong> {fullName || "Кандидат"}</p>

@@ -4,7 +4,7 @@ import (
 	"errors"
 	"log"
 	"test-constructor/config"
-	"test-constructor/internal/models"
+	"test-constructor/internal/domain"
 
 	"gorm.io/gorm"
 )
@@ -12,12 +12,12 @@ import (
 func SeedAdmin(db *gorm.DB) error {
 	cfg := config.Load()
 
-	var role models.Role
+	var role domain.Role
 	if err := db.Where("code = ?", "admin").First(&role).Error; err != nil {
 		return err
 	}
 
-	admin := models.User{
+	admin := domain.User{
 		Email:  cfg.AdminEmail,
 		RoleID: role.ID,
 		Role:   role,
@@ -28,7 +28,7 @@ func SeedAdmin(db *gorm.DB) error {
 		return err
 	}
 
-	var existingAdmin models.User
+	var existingAdmin domain.User
 	result := db.Where("email = ?", cfg.AdminEmail).First(&existingAdmin)
 	if result.Error != nil && errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		if err := db.Create(&admin).Error; err != nil {

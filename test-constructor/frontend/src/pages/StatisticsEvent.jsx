@@ -34,8 +34,8 @@ export default function StatisticsEvent() {
                 setParticipants(Array.isArray(data.participants) ? data.participants : []);
                 setTestHeaders(Array.isArray(data.testHeaders) ? data.testHeaders : []);
             } catch (err) {
-                console.error('Ошибка загрузки статистики мероприятия:', err);
-                setError('Не удалось загрузить статистику мероприятия.');
+                console.error('Ошибка загрузки результатов мероприятия:', err);
+                setError('Не удалось загрузить результаты мероприятия.');
                 setParticipants([]);
                 setTestHeaders([]);
             } finally {
@@ -82,13 +82,13 @@ export default function StatisticsEvent() {
                             <BackIcon />
                         </button>
 
-                        <h1>Статистика мероприятия</h1>
+                        <h1>Результаты мероприятия</h1>
                     </div>
 
                     <div className="tests-line"></div>
 
                     {loading ? (
-                        <p className="stat-empty">Загрузка статистики...</p>
+                        <p className="stat-empty">Загрузка результатов...</p>
                     ) : error ? (
                         <p className="stat-empty">{error}</p>
                     ) : participants.length === 0 ? (
@@ -138,7 +138,7 @@ export default function StatisticsEvent() {
                     {selectedStatistic && (
                         <div className="stat-modal-overlay">
                             <div className="stat-modal">
-                                <h3>Подробная статистика</h3>
+                                <h3>Подробные результаты</h3>
 
                                 <div className="stat-details-user">
                                     <p><strong>Участник:</strong> {selectedStatistic.participant.userName}</p>
@@ -167,7 +167,7 @@ export default function StatisticsEvent() {
                                 </div>
 
                                 <button className="stat-hide-btn" onClick={handleCloseStatistics}>
-                                    Скрыть подробную статистику
+                                    Скрыть подробные результаты
                                 </button>
                             </div>
                         </div>

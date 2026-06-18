@@ -42,11 +42,11 @@ export default function StatisticsTest() {
 
                     setAttempts(attemptsArray);
                 } else {
-                    console.warn("Не удалось загрузить статистику с сервера");
+                    console.warn("Не удалось загрузить результаты с сервера");
                     setAttempts([]);
                 }
             } catch (error) {
-                console.error("Ошибка загрузки статистики:", error);
+                console.error("Ошибка загрузки результатов:", error);
                 setAttempts([]);
             } finally {
                 setLoading(false);
@@ -82,7 +82,7 @@ export default function StatisticsTest() {
                         <button className="stat-back-btn2" onClick={handleBack}>
                             <BackIcon />
                         </button>
-                        <h1>Статистика теста</h1>
+                        <h1>Результаты теста</h1>
 
                     </div>
                     <div className="tests-line"></div>
@@ -98,7 +98,7 @@ export default function StatisticsTest() {
                                     <th>Участник</th>
                                     <th>Результат</th>
                                     <th>Время прохождения</th>
-                                    <th>Подробная статистика</th>
+                                    <th>Подробные результаты </th>
                                 </tr>
                                 </thead>
                                 <tbody>
@@ -119,7 +119,7 @@ export default function StatisticsTest() {
                                                 className="stat-details-btn"
                                                 onClick={() => handleOpenDetails(a)}
                                             >
-                                                Открыть подробную статистику
+                                                Открыть подробные результаты
                                             </button>
                                         </td>
                                     </tr>
@@ -133,7 +133,7 @@ export default function StatisticsTest() {
                     {selectedAttempt && (
                         <div className="stat-modal-overlay">
                             <div className="stat-modal">
-                                <h3>Подробная статистика</h3>
+                                <h3>Подробные результаты </h3>
 
                                 <div className="stat-details-user">
                                     <p>
@@ -175,7 +175,7 @@ export default function StatisticsTest() {
                                     className="stat-hide-btn"
                                     onClick={handleCloseDetails}
                                 >
-                                    Скрыть подробную статистику
+                                    Скрыть подробные результаты
                                 </button>
                             </div>
                         </div>

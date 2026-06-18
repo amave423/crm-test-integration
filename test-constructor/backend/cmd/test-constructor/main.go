@@ -1,93 +1,142 @@
 package main
 
 import (
-    "log"
-    "net/http"
-    "strings"
-    "test-constructor/config"
-    "test-constructor/internal/auth"
-    "test-constructor/internal/database"
-    "test-constructor/internal/handlers/admin"
-    "test-constructor/internal/handlers/intern"
-    "test-constructor/internal/handlers/manager"
-    "test-constructor/internal/middleware"
+	"log"
+	"net/http"
+	"strings"
+	"test-constructor/config"
+	"test-constructor/internal/auth"
+	"test-constructor/internal/client"
+	"test-constructor/internal/database"
+	"test-constructor/internal/handler"
+	"test-constructor/internal/middleware"
+	"test-constructor/internal/repository"
+	"test-constructor/internal/service"
 
-    _ "test-constructor/docs"
+	_ "test-constructor/docs"
 
-    "github.com/gorilla/mux"
-    "github.com/rs/cors"
-    httpSwagger "github.com/swaggo/http-swagger"
+	"github.com/gorilla/mux"
+	"github.com/rs/cors"
+	httpSwagger "github.com/swaggo/http-swagger"
 )
 
-// @title test constructor
+const clientURL = "http://localhost:5173"
+
+// @title Test Constructor API
 // @version 1.0
-// @description backend part of test constructor
+// @description     API для конструктора тестов
 // @host localhost:8080
 // @BasePath /
 
-// @securityDefinitions.apikey ApiKeyAuth
+// @securityDefinitions.apikey BearerAuth
 // @in header
 // @name Authorization
+// @description Введите токен в формате: Bearer {ваш_токен}
 func main() {
-    cfg := config.Load()
-    database.Connect()
+	cfg := config.Load()
+	db := database.Connect()
 
-    r := mux.NewRouter()
+	txManager := repository.NewTransactionManager(db)
 
-    r.HandleFunc("/register", auth.Registration).Methods("POST")
-    r.HandleFunc("/login", auth.Login).Methods("POST")
-    r.HandleFunc("/sso/exchange", auth.SSOExchange).Methods("POST")
+	userRepo := repository.NewUserRepository(db)
+	roleRepo := repository.NewRoleRepository(db)
+	testRepo := repository.NewTestRepository(db)
+	questionRepo := repository.NewQuestionRepository(db)
+	eventConfigRepo := repository.NewEventConfigRepository(db)
+	extraThresholdRepo := repository.NewExtraThresholdRepository(db)
+	userEventRepo := repository.NewUserEventRepository(db)
+	attemptRepo := repository.NewAttemptRepository(db)
+	answerRepo := repository.NewAnswerRepository(db)
+	statisticsRepo := repository.NewStatisticsRepository(db)
 
-    api := r.PathPrefix("/api").Subrouter()
-    api.Use(middleware.AuthMiddleware)
+	crmClient := client.NewCRMClient(cfg.CRMService, cfg.CRMToken)
 
-    m := api.PathPrefix("/manager").Subrouter()
-    m.Use(middleware.ManagerMiddleware)
-    m.HandleFunc("/tests", manager.GetTests).Methods("GET")
-    m.HandleFunc("/tests", manager.CreateTest).Methods("POST")
-    m.HandleFunc("/tests/{id}", manager.GetTest).Methods("GET")
-    m.HandleFunc("/tests/{id}", manager.UpdateTest).Methods("PUT")
-    m.HandleFunc("/tests/delete/{id}", manager.DeleteTest).Methods("POST")
-    m.HandleFunc("/tests/{id}/attempts", manager.GetTestAttempts).Methods("GET")
-    m.HandleFunc("/events", manager.GetEvents).Methods("GET")
-    m.HandleFunc("/events", manager.CreateConfig).Methods("POST")
-    m.HandleFunc("/events/{id}", manager.UpdateConfig).Methods("PUT")
-    m.HandleFunc("/events/{id}/configs", manager.GetEventConfigs).Methods("GET")
-    m.HandleFunc("/events/{id}/attempts", manager.GetEventAttempts).Methods("GET")
-    m.HandleFunc("/events/{id}/specializations", manager.GetEventSpecializations).Methods("GET")
-    m.HandleFunc("/users", manager.GetUsers).Methods("GET")
-    m.HandleFunc("/users/{id}", manager.GetUserStatistics).Methods("GET")
+	jwtService := auth.NewJWTService(cfg)
+	authService := service.NewAuthService(userRepo, roleRepo, jwtService)
+	testService := service.NewTestService(testRepo, questionRepo, txManager)
+	validationService := service.NewValidationService(questionRepo)
+	eventConfigService := service.NewEventConfigService(questionRepo, testRepo, eventConfigRepo, extraThresholdRepo, txManager, crmClient, validationService)
+	userEventService := service.NewUserEventService(userEventRepo)
+	eventService := service.NewEventService(crmClient)
+	attemptService := service.NewAttemptService(attemptRepo, answerRepo, eventConfigRepo, extraThresholdRepo, questionRepo, userEventRepo, txManager, crmClient)
+	testSelectionService := service.NewTestSelectionService(eventConfigRepo, userEventRepo, attemptRepo, extraThresholdRepo)
+	statisticsService := service.NewStatisticsService(statisticsRepo, eventService)
 
-    i := api.PathPrefix("/intern").Subrouter()
-    i.Use(middleware.InternMiddleware)
-    i.HandleFunc("/tests", intern.GetAttempts).Methods("GET")
-    i.HandleFunc("/tests/selection", intern.GetTestSelection).Methods("GET")
-    i.HandleFunc("/tests/{link}", intern.StartAttempt).Methods("GET")
-    i.HandleFunc("/attempt/finish", intern.FinishAttempt).Methods("POST")
-    i.HandleFunc("/users/events", intern.CreateUserEvent).Methods("POST")
-    i.HandleFunc("/users/events", intern.GetUserEvents).Methods("GET")
+	authHandler := handler.NewAuthHandler(authService)
+	testHandler := handler.NewTestHandler(testService)
+	eventConfigHandler := handler.NewEventConfigHandler(eventConfigService)
+	userEventHandler := handler.NewUserEventHandler(userEventService)
+	eventHandler := handler.NewEventHandler(eventService)
+	attemptHandler := handler.NewAttemptHandler(attemptService, testSelectionService)
+	testSelectionHandler := handler.NewTestSelectionHandler(testSelectionService)
+	statisticsHandler := handler.NewStatisticsHandler(statisticsService)
+	adminHandler := handler.NewAdminHandler(authService)
+	ssoHandler := handler.NewSSOHandler(
+		authService,
+		userEventService,
+		attemptService,
+		jwtService,
+		crmClient,
+		userRepo,
+		roleRepo,
+		eventConfigRepo,
+		attemptRepo,
+		cfg,
+	)
 
-    a := api.PathPrefix("/admin").Subrouter()
-    a.Use(middleware.AdminMiddleware)
-    a.HandleFunc("/manager/create", admin.CreateManager).Methods("POST")
+	r := mux.NewRouter()
 
-    r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
+	r.HandleFunc("/register", authHandler.Register).Methods("POST")
+	r.HandleFunc("/login", authHandler.Login).Methods("POST")
+	r.HandleFunc("/sso/exchange", ssoHandler.SSOExchange).Methods("POST")
 
-    allowedOrigins := []string{"http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"}
-    if strings.TrimSpace(cfg.ClientURL) != "" {
-        allowedOrigins = append(allowedOrigins, strings.TrimRight(cfg.ClientURL, "/"))
-    }
+	api := r.PathPrefix("/api").Subrouter()
+	api.Use(middleware.AuthMiddleware(jwtService))
 
-    c := cors.New(cors.Options{
-        AllowedOrigins:   allowedOrigins,
-        AllowedMethods:   []string{"GET", "POST", "PUT", "OPTIONS", "DELETE"},
-        AllowedHeaders:   []string{"Content-Type", "Authorization"},
-        AllowCredentials: true,
-    })
+	m := api.PathPrefix("/manager").Subrouter()
+	m.Use(middleware.ManagerMiddleware)
+	m.HandleFunc("/tests", testHandler.GetTests).Methods("GET")
+	m.HandleFunc("/tests/{id:[0-9]+}", testHandler.GetTestByID).Methods("GET")
+	m.HandleFunc("/tests", testHandler.CreateTest).Methods("POST")
+	m.HandleFunc("/tests/{id:[0-9]+}", testHandler.DeleteTest).Methods("DELETE")
+	m.HandleFunc("/events", eventHandler.GetEvents).Methods("GET")
+	m.HandleFunc("/events", eventConfigHandler.CreateConfig).Methods("POST")
+	m.HandleFunc("/events/{id:[0-9]+}", eventConfigHandler.UpdateConfig).Methods("PUT")
+	m.HandleFunc("/events/{id:[0-9]+/configs", eventConfigHandler.GetEventConfigs).Methods("GET")
+	m.HandleFunc("/events/{id:[0-9]+}/specializations", eventHandler.GetEventSpecializations).Methods("GET")
+	m.HandleFunc("/events/{id:[0-9]+}/statistics", statisticsHandler.GetEventStatistics).Methods("GET")
+	m.HandleFunc("/users", statisticsHandler.GetInternList).Methods("GET")
+	m.HandleFunc("/users/{id:[0-9]+}", statisticsHandler.GetUserStatistics).Methods("GET")
 
-    handler := c.Handler(r)
+	i := api.PathPrefix("/intern").Subrouter()
+	i.Use(middleware.InternMiddleware)
+	i.HandleFunc("/tests/{link}", attemptHandler.StartAttempt).Methods("GET")
+	i.HandleFunc("/attempt/finish", attemptHandler.FinishAttempt).Methods("POST")
+	i.HandleFunc("/attempt/active", attemptHandler.GetActiveAttempt).Methods("GET")
+	i.HandleFunc("/tests/selection", testSelectionHandler.GetTestSelection).Methods("GET")
+	i.HandleFunc("/users/events", userEventHandler.CreateUserEvent).Methods("POST")
+	i.HandleFunc("/users/events", userEventHandler.GetUserEvents).Methods("GET")
 
-    log.Printf("starting server on port %s", cfg.Port)
-    log.Fatal(http.ListenAndServe(":"+cfg.Port, handler))
+	a := api.PathPrefix("/admin").Subrouter()
+	a.Use(middleware.AdminMiddleware)
+	a.HandleFunc("/manager/create", adminHandler.CreateManager).Methods("POST")
+
+	r.PathPrefix("/swagger/").Handler(httpSwagger.WrapHandler)
+
+	allowedOrigins := []string{"http://localhost:5173", "http://localhost:5174", "http://127.0.0.1:5173", "http://127.0.0.1:5174"}
+	if strings.TrimSpace(cfg.ClientURL) != "" {
+		allowedOrigins = append(allowedOrigins, strings.TrimRight(cfg.ClientURL, "/"))
+	}
+
+	c := cors.New(cors.Options{
+		AllowedOrigins:   allowedOrigins,
+		AllowedMethods:   []string{"GET", "POST", "PUT", "OPTIONS", "DELETE"},
+		AllowedHeaders:   []string{"Content-Type", "Authorization"},
+		AllowCredentials: true,
+	})
+
+	handler := c.Handler(r)
+
+	log.Printf("starting server on port %s", cfg.Port)
+	log.Fatal(http.ListenAndServe(":"+cfg.Port, handler))
 }
-

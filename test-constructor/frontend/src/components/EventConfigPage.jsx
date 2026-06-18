@@ -435,20 +435,33 @@ export default function EventConfigPage() {
             </div>
 
             <div className="event-config-main">
+
                 {selectedTestId ? (
+
                     <>
-                        <div className="extra-test-flag-block" style={{ marginBottom: '20px' }}>
-                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer' }}>
-                                <input
-                                    type="checkbox"
-                                    checked={currentConfig.isExtraTest || false}
-                                    onChange={(e) => updateCurrentConfig('isExtraTest', e.target.checked)}
-                                    style={{ width: '18px', height: '18px', cursor: 'pointer' }}
+
+                        <div className="extra-test-flag-block">
+
+                            <label style={{ display: 'flex', alignItems: 'center', gap: '10px', cursor: 'pointer', paddingBottom:'20px', }}>
+
+                                <input className="FLAG1" id="my12"
+
+                                       type="checkbox"
+
+                                       checked={currentConfig.isExtraTest || false}
+
+                                       onChange={(e) => updateCurrentConfig('isExtraTest', e.target.checked)}
+
                                 />
+
                                 <span style={{ color: '#F0E8D5', fontSize: '16px', fontWeight: '600' }}>
-                                    Это дополнительный тест?
+
+                                    Это дополнительный?
+
                                 </span>
+
                             </label>
+
                         </div>
 
                         {currentConfig.isExtraTest ? (
@@ -456,10 +469,11 @@ export default function EventConfigPage() {
                                 marginBottom: '20px',
                                 padding: '12px 16px',
                                 backgroundColor: '#2A2A2A',
-                                borderRadius: '8px',
+                                borderRadius: '16px',
                                 color: '#F0E8D5',
-                                fontSize: '14px',
+                                fontSize: '20px',
                                 fontWeight: '500'
+
                             }}>
                                 Все специализации
                             </div>

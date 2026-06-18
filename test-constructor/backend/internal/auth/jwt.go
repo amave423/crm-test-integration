@@ -19,17 +19,29 @@ type JWTClaims struct {
 	jwt.RegisteredClaims
 }
 
-func GenerateJWT(userID uint, email, name, surname string, role string) (string, error) {
-	return generateJWT(userID, email, name, surname, role, nil, false, false)
+type JWTService interface {
+	GenerateToken(userID uint, email, name, surname, role string) (string, error)
+	GenerateTokenWithScope(userID uint, email, name, surname, role string, managedEventIDs []uint, isGlobalOrganizer bool) (string, error)
+	ValidateToken(tokenString string) (*JWTClaims, error)
 }
 
-func GenerateJWTWithScope(userID uint, email, name, surname string, role string, managedEventIDs []uint, isGlobalOrganizer bool) (string, error) {
-	return generateJWT(userID, email, name, surname, role, managedEventIDs, isGlobalOrganizer, true)
+type jwtService struct {
+	config *config.Config
 }
 
-func generateJWT(userID uint, email, name, surname string, role string, managedEventIDs []uint, isGlobalOrganizer bool, crmScoped bool) (string, error) {
-	cfg := config.Load()
+func NewJWTService(cfg *config.Config) JWTService {
+	return &jwtService{config: cfg}
+}
 
+func (s *jwtService) GenerateToken(userID uint, email, name, surname, role string) (string, error) {
+	return s.generateToken(userID, email, name, surname, role, nil, false, false)
+}
+
+func (s *jwtService) GenerateTokenWithScope(userID uint, email, name, surname, role string, managedEventIDs []uint, isGlobalOrganizer bool) (string, error) {
+	return s.generateToken(userID, email, name, surname, role, managedEventIDs, isGlobalOrganizer, true)
+}
+
+func (s *jwtService) generateToken(userID uint, email, name, surname, role string, managedEventIDs []uint, isGlobalOrganizer bool, crmScoped bool) (string, error) {
 	claims := &JWTClaims{
 		UserID:            userID,
 		Email:             email,
@@ -40,7 +52,7 @@ func generateJWT(userID uint, email, name, surname string, role string, managedE
 		IsGlobalOrganizer: isGlobalOrganizer,
 		CRMScoped:         crmScoped,
 		RegisteredClaims: jwt.RegisteredClaims{
-			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(cfg.JWTTTL))),
+			ExpiresAt: jwt.NewNumericDate(time.Now().Add(time.Hour * time.Duration(s.config.JWTTTL))),
 			IssuedAt:  jwt.NewNumericDate(time.Now()),
 			NotBefore: jwt.NewNumericDate(time.Now()),
 			Issuer:    "test-constructor",
@@ -48,7 +60,23 @@ func generateJWT(userID uint, email, name, surname string, role string, managedE
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	return token.SignedString([]byte(cfg.JWTSecret))
+	return token.SignedString([]byte(s.config.JWTSecret))
+}
+
+func (s *jwtService) ValidateToken(tokenString string) (*JWTClaims, error) {
+	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
+		return []byte(s.config.JWTSecret), nil
+	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
+		return claims, nil
+	}
+
+	return nil, jwt.ErrSignatureInvalid
 }
 
 func normalizeManagedEventIDs(ids []uint) []uint {
@@ -91,22 +119,4 @@ func (claims *JWTClaims) ScopedEventIDs() []uint {
 		return nil
 	}
 	return normalizeManagedEventIDs(claims.ManagedEventIDs)
-}
-
-func ValidateJWT(tokenString string) (*JWTClaims, error) {
-	cfg := config.Load()
-
-	token, err := jwt.ParseWithClaims(tokenString, &JWTClaims{}, func(token *jwt.Token) (interface{}, error) {
-		return []byte(cfg.JWTSecret), nil
-	})
-
-	if err != nil {
-		return nil, err
-	}
-
-	if claims, ok := token.Claims.(*JWTClaims); ok && token.Valid {
-		return claims, nil
-	}
-
-	return nil, jwt.ErrSignatureInvalid
 }

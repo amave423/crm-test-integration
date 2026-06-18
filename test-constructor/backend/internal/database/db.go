@@ -4,16 +4,14 @@ import (
 	"fmt"
 	"log"
 	"test-constructor/config"
-	"test-constructor/internal/models"
+	"test-constructor/internal/domain"
 	"test-constructor/migrations"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
-var DB *gorm.DB
-
-func Connect() {
+func Connect() *gorm.DB {
 	cfg := config.Load()
 	dsn := cfg.DatabaseURL
 	if dsn == "" {
@@ -27,53 +25,52 @@ func Connect() {
 		)
 	}
 
-	connection, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
 		DisableForeignKeyConstraintWhenMigrating: true,
 	})
 	if err != nil {
 		log.Fatal("database connection failed: ", err)
 	}
 
-	DB = connection
-
-	err = DB.AutoMigrate(
-		&models.User{},
-		&models.Test{},
-		&models.Question{},
-		&models.Answer{},
-		&models.Role{},
-		&models.EventConfig{},
-		&models.ExtraThreshold{},
-		&models.Attempt{},
-		&models.UserEvent{},
+	err = db.AutoMigrate(
+		&domain.User{},
+		&domain.Test{},
+		&domain.Question{},
+		&domain.Answer{},
+		&domain.Role{},
+		&domain.EventConfig{},
+		&domain.ExtraThreshold{},
+		&domain.Attempt{},
+		&domain.UserEvent{},
 	)
 	if err != nil {
 		log.Fatal("database migration failed: ", err)
 	}
 
-	fixLegacyConstraints()
+	fixLegacyConstraints(db)
 
-	if err := migrations.SeedRoles(DB); err != nil {
+	if err := migrations.SeedRoles(db); err != nil {
 		log.Fatal("failed to seed roles: ", err)
 	}
 
-	if err := migrations.SeedAdmin(DB); err != nil {
+	if err := migrations.SeedAdmin(db); err != nil {
 		log.Fatal("failed to seed admin: ", err)
 	}
 
 	log.Println("database connected")
+	return db
 }
 
-func fixLegacyConstraints() {
-	if err := DB.Exec(`ALTER TABLE event_configs DROP CONSTRAINT IF EXISTS fk_attempts_event_config`).Error; err != nil {
-		log.Fatal("failed to drop legacy event config constraint: ", err)
+func fixLegacyConstraints(db *gorm.DB) {
+	if err := db.Exec(`ALTER TABLE event_configs DROP CONSTRAINT IF EXISTS fk_attempts_event_config`).Error; err != nil {
+		log.Println("failed to drop legacy event config constraint: ", err)
 	}
 
-	if err := DB.Exec(`ALTER TABLE attempts DROP CONSTRAINT IF EXISTS fk_attempts_event_config`).Error; err != nil {
-		log.Fatal("failed to drop attempts event config constraint: ", err)
+	if err := db.Exec(`ALTER TABLE attempts DROP CONSTRAINT IF EXISTS fk_attempts_event_config`).Error; err != nil {
+		log.Println("failed to drop attempts event config constraint: ", err)
 	}
 
-	if err := DB.Exec(`
+	if err := db.Exec(`
 DO $$
 BEGIN
     IF NOT EXISTS (
@@ -91,6 +88,6 @@ BEGIN
 END
 $$;
 `).Error; err != nil {
-		log.Fatal("failed to create attempts event config constraint: ", err)
+		log.Println("failed to create attempts event config constraint: ", err)
 	}
 }

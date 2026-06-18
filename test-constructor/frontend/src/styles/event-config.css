@@ -1,6 +1,7 @@
 body {
     background: #F0E8D5;
 }
+
 .event-config-page {
     display: flex;
     background: #F0E8D5;
@@ -842,4 +843,33 @@ body {
     color: #2f4156;
     font-size: 18px;
     font-weight: 600;
+}
+
+
+.extra-test-flag-block FLAG1 {
+    cursor: pointer;
+    border: 1px solid #2F4156;
+    border-radius: 16px !important;
+    background: red;
+    margin-top: 0;
+    padding: 0;
+}
+#my12:hover {
+    border: 1px solid white;
+    border-image:none;
+}
+
+#my12{
+    cursor: pointer;
+    border: 1px solid #2F4156;
+    border-radius: 16px !important;
+    background: red;
+    margin: 0;
+    padding-top: 20px;
+
+}
+
+#my12:active{
+    padding-bottom: 20px;
+    border: 1px solid #F0E8D5;
 }
