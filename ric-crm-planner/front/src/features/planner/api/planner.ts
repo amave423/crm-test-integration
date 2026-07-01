@@ -377,7 +377,6 @@ function toBackendTeamDesk(state: PlannerState, teamId: number) {
     team_name: team?.name ?? "",
     curator_id: team?.curatorId ?? null,
     member_ids: team?.memberIds ?? [],
-    updated_at: team?.updatedAt ?? "",
     parent_tasks: state.parentTasks.filter((task) => Number(task.teamId) === Number(teamId)),
     subtasks: state.subtasks.filter((subtask) => Number(subtask.teamId) === Number(teamId)),
     columns: state.columns,
@@ -422,7 +421,6 @@ export async function savePlannerState(state: PlannerState, activeTeamId?: numbe
   writePlannerState(state);
   if (USE_MOCK) return state;
 
-  await savePlannerWorkspaceState(state);
   const shouldSaveTeamDesk =
     activeTeamId != null &&
     Number.isFinite(activeTeamId) &&
@@ -431,6 +429,8 @@ export async function savePlannerState(state: PlannerState, activeTeamId?: numbe
   if (shouldSaveTeamDesk) {
     await savePlannerTeamDesk(state, activeTeamId);
   }
+
+  await savePlannerWorkspaceState(state);
   return state;
 }
 

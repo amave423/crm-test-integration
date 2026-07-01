@@ -340,6 +340,7 @@ export default function PlannerPage() {
   };
   const canViewTeam = (teamId: number) => isManagedTeam(teamId) || isCurator || (isStudent && confirmedMemberTeamIds.includes(teamId));
   const canEditTeam = (teamId: number) => isManagedTeam(teamId) || (isCurator && curatorTeamIds.includes(teamId)) || (isStudent && confirmedMemberTeamIds.includes(teamId));
+  const canMoveSubtask = (subtask: PlannerSubtask) => canEditTeam(subtask.teamId) || Number(subtask.assigneeId) === userId;
 
   const visibleTeams = state.teams.filter((t) => canViewTeam(t.id) && !hiddenEventIdSet.has(Number(t.eventId)));
   const activeTeamId = teamFilter ? Number(teamFilter) : null;
@@ -903,7 +904,7 @@ export default function PlannerPage() {
   const moveKanbanSubtask = (subtaskId: number, column: string, position: number) => {
     setState((prev) => {
       const moved = prev.subtasks.find((subtask) => Number(subtask.id) === Number(subtaskId));
-      if (!moved || !canEditTeam(moved.teamId)) return prev;
+      if (!moved || !canMoveSubtask(moved)) return prev;
 
 	      const movedNext: PlannerSubtask = { ...moved, status: column, inSprint: true, updatedAt: currentTimestamp() };
       const targetSubtasks = prev.subtasks.filter(

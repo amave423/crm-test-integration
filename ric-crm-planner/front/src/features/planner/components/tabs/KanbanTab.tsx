@@ -90,7 +90,7 @@ export default function KanbanTab({
           children: [],
           totalChildrenCount: 0,
           type: "card",
-          isDraggable: canEditTeam(subtask.teamId),
+          isDraggable: canEditTeam(subtask.teamId) || Number(subtask.assigneeId) === Number(currentUserId),
           content: { subtask } satisfies KanbanCardContent,
         };
         source[columnId]?.children.push(cardId);
